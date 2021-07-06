@@ -28,6 +28,7 @@ import chalk from 'chalk'
 import { VoteKind } from '@joystream/types/proposals'
 import { Seats } from '@joystream/types/council'
 import { AccountInfo } from '@polkadot/types/interfaces/system'
+import { HeaderExtended } from '@polkadot/api-derive/type/types';
 import {
   Api,
   Handles,
@@ -138,7 +139,6 @@ export const addBlock = async (
 }
 
 const processBlock = async (api: Api, id: number) => {
-  console.log("processBlock!!!");
 
   const exists = await Block.findByPk(id)
   if (exists) return exists
@@ -152,13 +152,16 @@ const processBlock = async (api: Api, id: number) => {
     let lastBlockHash = await getBlockHash(api, id - 1);
     lastBlockTimestamp = await getTimestamp(api, lastBlockHash);
   }
-  console.log("Here!!!");
 
   const [block] = await Block.findOrCreate({ where: { id } })
   block.hash = await getBlockHash(api, id)
   let currentBlockTimestamp = await getTimestamp(api, block.hash);
+  const extendedHeader = await api.derive.chain.getHeader(block.hash) as HeaderExtended;
   block.timestamp = new Date(currentBlockTimestamp)
   block.blocktime = (currentBlockTimestamp - lastBlockTimestamp)
+  await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } })
+  block.validatorKey = extendedHeader.author.toHuman();
+  console.log(extendedHeader.author.toHuman());
   block.save()
 
   processEvents(api, id, block.hash)
@@ -244,6 +247,7 @@ const processEvents = async (api: Api, blockId: number, hash: string) => {
     const blockEvents = await api.query.system.events.at(hash)
     blockEvents.forEach(({ event }: EventRecord) => {
       let { section, method, data } = event
+      //console.log(data);
       Event.create({ blockId, section, method, data: JSON.stringify(data) })
     })
   } catch (e) {
