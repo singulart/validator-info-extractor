@@ -144,6 +144,7 @@ const processBlock = async (api: Api, id: number) => {
   if (exists) return exists
 
   processing = `block ${id}`
+  console.log(processing)
   const last = await Block.findByPk(id - 1)
   let lastBlockTimestamp;
   if (last) {
@@ -153,18 +154,19 @@ const processBlock = async (api: Api, id: number) => {
     lastBlockTimestamp = await getTimestamp(api, lastBlockHash);
   }
 
-  const [block] = await Block.findOrCreate({ where: { id } })
+  const block = new Block()
+  block.id = id
   block.hash = await getBlockHash(api, id)
-  let currentBlockTimestamp = await getTimestamp(api, block.hash);
-  const extendedHeader = await api.derive.chain.getHeader(block.hash) as HeaderExtended;
+  let currentBlockTimestamp = await getTimestamp(api, block.hash)
+  const extendedHeader = await api.derive.chain.getHeader(block.hash) as HeaderExtended
   block.timestamp = new Date(currentBlockTimestamp)
   block.blocktime = (currentBlockTimestamp - lastBlockTimestamp)
   await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } })
-  block.validatorKey = extendedHeader.author.toHuman();
-  console.log(extendedHeader.author.toHuman());
+  block.validatorKey = extendedHeader.author.toHuman()
+  console.log(extendedHeader.author.toHuman())
   block.save()
 
-  processEvents(api, id, block.hash)
+  //processEvents(api, id, block.hash)
   await importEraAtBlock(api, id, block.hash)
   return block
 }

@@ -1,5 +1,5 @@
 import db from '../db'
-import { DataTypes } from 'sequelize'
+import { DataTypes, Op } from 'sequelize'
 
 const Block = db.define('block', {
   id: {
@@ -28,6 +28,20 @@ Block.findByIdWithIncludes = function (id: number) {
       { model: db.models.event },
       { association: 'validator' },
     ],
+  })
+}
+
+Block.findLastProcessedBlockId = function (start: number, end: number) {
+  return this.max('id', 
+    { 
+      where: {
+        id: {
+          [Op.and]: {
+            [Op.gte]: start,
+            [Op.lt]: end,
+          }
+        }
+      }
   })
 }
 
