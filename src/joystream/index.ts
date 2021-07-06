@@ -44,6 +44,7 @@ import {
   Status,
 } from '../types'
 
+
 import {
   AccountId,
   Moment,
@@ -126,6 +127,9 @@ export const addBlock = async (
   const block = await processBlock(api, id)
   const key = header.author?.toString()
   const [account] = await Account.findOrCreate({ where: { key } })
+  // const [account] = await Account.findOrCreate({ where: { 'key': key } })
+  // await block.setValidator(account.id)
+
   await block.setValidator(account.key)
   //account.addBlock(block.id) // TODO needed?
   io.emit('block', await Block.findByIdWithIncludes(id))
@@ -161,14 +165,25 @@ const processBlock = async (api: Api, id: number) => {
   const extendedHeader = await api.derive.chain.getHeader(block.hash) as HeaderExtended
   block.timestamp = new Date(currentBlockTimestamp)
   block.blocktime = (currentBlockTimestamp - lastBlockTimestamp)
-  await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } })
-  block.validatorKey = extendedHeader.author.toHuman()
-  console.log(extendedHeader.author.toHuman())
+  const [account] = await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } })
+  block.validatorId = account.id
+  //console.log(extendedHeader.author.toHuman())
   block.save()
 
   //processEvents(api, id, block.hash)
-  await importEraAtBlock(api, id, block.hash)
+  await importEraAtBlock(api, id, block.hash, last)
+
   return block
+}
+
+const addValidatorStats = async (
+  api: Api,
+  era,
+  blockId: number,
+  blockHash: string
+) => {
+  console.log("Here");
+  era.save()
 }
 
 export const addBlockRange = async (
@@ -261,7 +276,7 @@ const processEvents = async (api: Api, blockId: number, hash: string) => {
 const fetchValidators = async (api: Api, hash: string) =>
   api.query.staking.snapshotValidators.at(hash);
 
-const importEraAtBlock = async (api: Api, blockId: number, hash: string) => {
+const importEraAtBlock = async (api: Api, blockId: number, hash: string, last) => {
   const id = await getEraAtHash(api, hash)
   const [era] = await Era.findOrCreate({ where: { id } })
   era.addBlock(blockId)
@@ -273,7 +288,11 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string) => {
       async (snapshot) => {
         if (snapshot.isEmpty) return
         console.log(`[Joystream] Found validator info for era ${id}`)
-        const validatorCount = snapshot.unwrap().length
+        const validators = snapshot.unwrap() as Vec<AccountId>;
+        for (let validator of validators) {
+          console.log(validator.toHuman());
+        }
+        const validatorCount = validators.length
         era.slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
         era.active = Math.min(era.slots, validatorCount)
         era.waiting =
@@ -285,7 +304,7 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string) => {
         era.timestamp = moment(chainTimestamp.toNumber())
         // era.update({ slots, active, waiting, stake, timestamp })
         era.blockId = id
-        era.save()
+        await addValidatorStats(api, era, id, hash);      
         updateBalances(api, hash)
       }
     )

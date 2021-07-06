@@ -2,10 +2,12 @@ import db from '../db'
 import { DataTypes } from 'sequelize'
 
 const Account = db.define('account', {
-  key: {
-    type: DataTypes.STRING,
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
     primaryKey: true,
   },
+  key: DataTypes.STRING,
   format: DataTypes.STRING,
   about: DataTypes.TEXT,
 })

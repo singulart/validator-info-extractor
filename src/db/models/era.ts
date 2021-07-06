@@ -11,6 +11,9 @@ const Era = db.define('era', {
   slots: DataTypes.INTEGER,
   timestamp: DataTypes.DATE,
   stake: DataTypes.DECIMAL,
+  rewards: DataTypes.DECIMAL,
+  validatorz: DataTypes.INTEGER,
+  nominatorz: DataTypes.INTEGER,
 })
 
 Era.findAllWithIncludes = function () {

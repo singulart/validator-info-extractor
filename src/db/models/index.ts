@@ -15,6 +15,8 @@ import Category from './category'
 import Thread from './thread'
 import Post from './post'
 import Moderation from './moderation'
+import ValidatorStats from './validatorstats'
+
 
 Member.hasMany(Account)
 Member.belongsTo(Account, { as: 'root', constraints: false })
@@ -28,7 +30,7 @@ Member.hasMany(Proposal)
 
 Account.belongsTo(Member)
 Account.hasMany(Balance)
-Account.hasMany(Block, { as: 'validated', foreignKey: 'validatorKey' })
+//Account.hasMany(Block, { as: 'validated', foreignKey: 'validatorKey' })
 Account.hasMany(Moderation)
 
 Balance.belongsTo(Account)
@@ -82,6 +84,9 @@ ProposalVote.belongsTo(Proposal)
 ProposalVote.belongsTo(Consul)
 ProposalVote.belongsTo(Member)
 
+ValidatorStats.belongsTo(Era)
+ValidatorStats.belongsTo(Account)
+
 export {
   Account,
   Balance,
@@ -100,4 +105,5 @@ export {
   Thread,
   Post,
   Moderation,
+  ValidatorStats
 }
