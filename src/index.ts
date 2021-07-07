@@ -51,12 +51,6 @@ async function main () {
     }
     
     processNext();
-
-    if(parseInt(process.env.NEW_HEADS)) {
-        //
-    } else {
-        api.disconnect();
-    }
 }  
 
 main()
