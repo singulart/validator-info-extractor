@@ -16,6 +16,7 @@ import Thread from './thread'
 import Post from './post'
 import Moderation from './moderation'
 import ValidatorStats from './validatorstats'
+import StartBlock from './startblock'
 
 
 Member.hasMany(Account)
@@ -105,5 +106,6 @@ export {
   Thread,
   Post,
   Moderation,
-  ValidatorStats
+  ValidatorStats,
+  StartBlock
 }
