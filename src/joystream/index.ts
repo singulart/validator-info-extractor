@@ -17,6 +17,7 @@ import {
   ProposalVote,
   Thread,
   Moderation,
+  ValidatorStats
 } from '../db/models'
 
 import * as get from './lib/getters'
@@ -50,6 +51,7 @@ import {
   Moment,
   ActiveEraInfo,
   EventRecord,
+  EraIndex,
 } from '@polkadot/types/interfaces'
 import { Vec } from '@polkadot/types'
 
@@ -178,12 +180,31 @@ const processBlock = async (api: Api, id: number) => {
 
 const addValidatorStats = async (
   api: Api,
-  era,
-  blockId: number,
-  blockHash: string
+  eraId: number,
+  validator: string,
+  blockHash: string,
+  points: Map<string, number>
 ) => {
-  console.log("Here");
-  era.save()
+
+  const [account] = await Account.findOrCreate({ where: { key: validator } })
+  let stats = await ValidatorStats.findByAccountAndEra(account.id, eraId)
+  if(!stats) {
+    stats = new ValidatorStats()
+  }
+  stats.eraId = eraId
+  stats.accountId = account.id
+  const {total, own} = await api.query.staking.erasStakers.at(blockHash, eraId, validator)
+  stats.stake_own = own
+  stats.stake_total = total
+  for(const [key, value] of points.entries()) {
+    if(key == validator) {
+      stats.points = value
+    }
+  }
+  //TODO reward?
+  stats.commission = (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission
+  stats.commission /= 10000000
+  stats.save()
 }
 
 export const addBlockRange = async (
@@ -273,8 +294,6 @@ const processEvents = async (api: Api, blockId: number, hash: string) => {
   // TODO catch votes, posts, proposals?
 }
 
-const fetchValidators = async (api: Api, hash: string) =>
-  api.query.staking.snapshotValidators.at(hash);
 
 const importEraAtBlock = async (api: Api, blockId: number, hash: string, last) => {
   const id = await getEraAtHash(api, hash)
@@ -284,30 +303,43 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, last) =
 
   processing = `era ${id}`
   try {
-    fetchValidators(api, hash).then(
-      async (snapshot) => {
-        if (snapshot.isEmpty) return
-        console.log(`[Joystream] Found validator info for era ${id}`)
-        const validators = snapshot.unwrap() as Vec<AccountId>;
-        for (let validator of validators) {
-          console.log(validator.toHuman());
-        }
-        const validatorCount = validators.length
-        era.slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
-        era.active = Math.min(era.slots, validatorCount)
-        era.waiting =
-          validatorCount > era.slots ? validatorCount - era.slots : 0
-        era.stake = await api.query.staking.erasTotalStake.at(hash, id)
-        const chainTimestamp = (await api.query.timestamp.now.at(
-          hash
-        )) as Moment
-        era.timestamp = moment(chainTimestamp.toNumber())
-        // era.update({ slots, active, waiting, stake, timestamp })
-        era.blockId = id
-        await addValidatorStats(api, era, id, hash);      
-        updateBalances(api, hash)
+    const snapshot = await api.query.staking.snapshotValidators.at(hash);
+    if (snapshot.isEmpty) return
+    console.log(`[Joystream] Found validator info for hash ${hash}`)
+
+    const {total, individual} = await api.query.staking.erasRewardPoints.at(hash, id)
+    console.log(`[2]`)
+
+    const validators = snapshot.unwrap() as Vec<AccountId>;
+    for (let validator of validators) {
+      await addValidatorStats(api, id, validator.toHuman(), hash, individual);
+      console.log(`[3]`)
+    }
+
+    const validatorCount = validators.length
+    era.slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
+    era.active = Math.min(era.slots, validatorCount)
+    era.waiting = validatorCount > era.slots ? validatorCount - era.slots : 0
+    era.stake = await api.query.staking.erasTotalStake.at(hash, id)
+    era.eraPoints = total
+
+    let noms = 0
+    for (let validator of validators) {
+      const nom = await api.query.staking.erasStakers.at(hash, id, validator)
+      if(nom.total) {
+        noms += 1;
       }
-    )
+    }
+    console.log(`[4]`)
+
+    era.nominatorz = noms
+    era.validatorz = validatorCount
+    const chainTimestamp = (await api.query.timestamp.now.at(hash)) as Moment
+    era.timestamp = moment(chainTimestamp.toNumber())
+    // era.update({ slots, active, waiting, stake, timestamp })
+    era.blockId = id
+    era.save()
+    updateBalances(api, hash)
   } catch (e) {
     console.error(`import era ${blockId} ${hash}`, e)
   }

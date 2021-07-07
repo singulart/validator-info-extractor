@@ -11,7 +11,7 @@ const Era = db.define('era', {
   slots: DataTypes.INTEGER,
   timestamp: DataTypes.DATE,
   stake: DataTypes.DECIMAL,
-  rewards: DataTypes.DECIMAL,
+  eraPoints: DataTypes.DECIMAL,
   validatorz: DataTypes.INTEGER,
   nominatorz: DataTypes.INTEGER,
 })
