@@ -14,9 +14,9 @@ node lib/index.js
 
  ## Queries
 
-List of eras where validator was active (produced blocks)
+List of eras where validator was active
  ```
- select distinct(b."eraId") from blocks b where b."validatorKey"='555555555555555555555555';
+select a.key, "eraId", stake_total, stake_own, points, rewards, commission from validator_stats vs inner join accounts a on a.id = vs."accountId" where a.key = '44444444444444444444444444444' order by "eraId";
  ```
 
 Eras starts and ends (blocks and time)
@@ -26,10 +26,10 @@ select distinct("eraId") era, min(id) start_height, min(timestamp) start_time, m
 
 Ordered list of blocks count produced by validators, per era
 ```
-select distinct(e.id) era, b."validatorKey" account, count(b.id) blocks_cnt from eras e join blocks b on b."eraId" = e.id  group by e.id, account order by blocks_cnt desc;
+select distinct(e.id) era, a.key account, count(b.id) blocks_cnt from eras e  join blocks b on b."eraId" = e.id inner join accounts a on a.id = b."validatorId" group by e.id, account order by blocks_cnt desc;
 ```
 
 Same as above, but for one validator
 ```
-select distinct(e.id) era, b."validatorKey" account, count(b.id) blocks_cnt from eras e join blocks b on b."eraId" = e.id  where b."validatorKey" = '555555555555555555555555' group by e.id, account order by blocks_cnt desc;
+select distinct(e.id) era, a.key account, count(b.id) blocks_cnt from eras e  join blocks b on b."eraId" = e.id inner join accounts a on a.id = b."validatorId" where a.key = '44444444444444444444444444444' group by e.id, account order by blocks_cnt desc;
 ```
