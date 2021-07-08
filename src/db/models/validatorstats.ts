@@ -12,8 +12,8 @@ const ValidatorStats = db.define('validator_stats', {
 })
 
 
-ValidatorStats.findByAccountAndEra = function (account: number, era: number) {
-  return this.findOne( 
+export const findByAccountAndEra = (account: number, era: number) => {
+  return ValidatorStats.findOne( 
     { 
       where: {
         accountId: { [Op.eq]: account },

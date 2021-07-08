@@ -5,6 +5,7 @@ import {
     Block,
     StartBlock
 } from './db/models'
+import {findLastProcessedBlockId} from './db/models/block'
 import { Header } from './types'
   
 async function main () {
@@ -41,8 +42,8 @@ async function main () {
     const firstBlock:number = parseInt(process.env.START_BLOCK);
     const lastBlock:number = parseInt(process.env.END_BLOCK);
     
-    const lastImportedBlockHeight = await Block.findLastProcessedBlockId(firstBlock, lastBlock);
-    if (lastImportedBlockHeight && parseInt(lastImportedBlockHeight) > 0 && parseInt(lastImportedBlockHeight) < lastBlock) {
+    const lastImportedBlockHeight = await findLastProcessedBlockId(firstBlock, lastBlock);
+    if (lastImportedBlockHeight && lastImportedBlockHeight > 0 && lastImportedBlockHeight < lastBlock) {
         console.log(`[Joystream] Found last imported block ${lastImportedBlockHeight}. Resuming processing from the next one`);
         await addBlockRange(api, lastImportedBlockHeight + 1, lastBlock);
     } else {

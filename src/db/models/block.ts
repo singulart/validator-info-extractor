@@ -11,28 +11,9 @@ const Block = db.define('block', {
   blocktime: DataTypes.INTEGER,
 })
 
-Block.findAllWithIncludes = function () {
-  return this.findAll({
-    include: [
-      { model: db.models.era },
-      { model: db.models.event },
-      { association: 'validator' },
-    ],
-  })
-}
 
-Block.findByIdWithIncludes = function (id: number) {
-  return this.findByPk(id, {
-    include: [
-      { model: db.models.era },
-      { model: db.models.event },
-      { association: 'validator' },
-    ],
-  })
-}
-
-Block.findLastProcessedBlockId = function (start: number, end: number) {
-  return this.max('id', 
+export const findLastProcessedBlockId = (start: number, end: number): Promise<number> => {
+  return Block.max('id', 
     { 
       where: {
         id: {
@@ -42,17 +23,6 @@ Block.findLastProcessedBlockId = function (start: number, end: number) {
           }
         }
       }
-  })
-}
-
-Block.findWithIncludes = function (args: { where: any }) {
-  return this.findAll({
-    ...args,
-    include: [
-      { model: db.models.era },
-      { model: db.models.event },
-      { association: 'validator' },
-    ],
   })
 }
 
