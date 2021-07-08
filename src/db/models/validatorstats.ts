@@ -1,7 +1,9 @@
 import db from '../db'
-import { DataTypes, Op } from 'sequelize'
+import { DataTypes, Op, Model } from 'sequelize'
 
-const ValidatorStats = db.define('validator_stats', {
+class ValidatorStats extends Model {}
+
+ValidatorStats.init({
   accountId: DataTypes.INTEGER,
   eraId: DataTypes.INTEGER,
   stake_total: DataTypes.DECIMAL,
@@ -9,10 +11,10 @@ const ValidatorStats = db.define('validator_stats', {
   points: DataTypes.INTEGER,
   rewards: DataTypes.DECIMAL,
   commission: DataTypes.DECIMAL
-})
+}, {modelName: 'validator_stats', sequelize: db})
 
 
-export const findByAccountAndEra = (account: number, era: number) => {
+export const findByAccountAndEra = (account: number, era: number): Promise<ValidatorStats> => {
   return ValidatorStats.findOne( 
     { 
       where: {

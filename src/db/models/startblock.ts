@@ -1,8 +1,10 @@
 import db from '../db'
-import { DataTypes } from 'sequelize'
+import { DataTypes, Model } from 'sequelize'
 
-const StartBlock = db.define('start_block', {
+class StartBlock extends Model {}
+
+StartBlock.init({
   block: DataTypes.INTEGER,
-})
+}, {modelName: 'start_block', sequelize: db})
 
 export default StartBlock

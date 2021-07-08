@@ -71,11 +71,8 @@ export const addBlock = async (
     console.error(`TODO handle fork`, String(header.author))
   }
 
-  const block = await processBlock(api, id)
-  const key = header.author?.toString()
-  const accountModel = await Account.findOrCreate({ where: { 'key': key } })
-  const account = accountModel[0].get({plain: true})
-
+  await processBlock(api, id)
+  
   // logging
   //const handle = await getHandleOrKey(api, key)
   const q = queue.length ? chalk.green(` [${queue.length}:${processing}]`) : ''

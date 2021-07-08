@@ -1,11 +1,12 @@
 import db from '../db'
-import { DataTypes } from 'sequelize'
+import { DataTypes, Model } from 'sequelize'
 
-const Balance = db.define('balance', {
+class Balance extends Model {}
+
+Balance.init({
   available: DataTypes.INTEGER,  
   locked: DataTypes.INTEGER,
   frozen: DataTypes.INTEGER,
-  //fee: DataTypes.INTEGER,
-})
+}, { modelName: 'balance', sequelize: db })
 
 export default Balance

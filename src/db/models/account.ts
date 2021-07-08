@@ -2,7 +2,9 @@ import db from '../db'
 
 import { DataTypes, Model } from 'sequelize'
 
-const Account = db.define('account', {
+class Account extends Model {}
+
+Account.init({
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -11,6 +13,6 @@ const Account = db.define('account', {
   key: DataTypes.STRING,
   format: DataTypes.STRING,
   about: DataTypes.TEXT,
-})
+}, {modelName: 'account', sequelize: db})
 
 export default Account

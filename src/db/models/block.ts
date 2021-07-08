@@ -1,7 +1,9 @@
 import db from '../db'
-import { DataTypes, Op } from 'sequelize'
+import { DataTypes, Op, Model } from 'sequelize'
 
-const Block = db.define('block', {
+class Block extends Model {}
+
+Block.init({
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -9,7 +11,7 @@ const Block = db.define('block', {
   hash: DataTypes.STRING,
   timestamp: DataTypes.DATE,
   blocktime: DataTypes.INTEGER,
-})
+}, {modelName: 'block', sequelize: db})
 
 
 export const findLastProcessedBlockId = (start: number, end: number): Promise<number> => {

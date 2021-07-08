@@ -1,11 +1,12 @@
 import db from '../db'
-import { DataTypes } from 'sequelize'
+import { DataTypes, Model } from 'sequelize'
 
-const Event = db.define('event', {
-  section: DataTypes.STRING,
-  method: DataTypes.STRING,
-  data: DataTypes.TEXT,
-})
+class Event extends Model {}
 
+Event.init({
+  available: DataTypes.INTEGER,  
+  locked: DataTypes.INTEGER,
+  frozen: DataTypes.INTEGER,
+}, { modelName: 'balance', sequelize: db })
 
 export default Event

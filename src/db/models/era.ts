@@ -1,7 +1,9 @@
 import db from '../db'
-import { DataTypes } from 'sequelize'
+import { DataTypes, Model } from 'sequelize'
 
-const Era = db.define('era', {
+class Era extends Model {}
+
+Era.init({
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -14,6 +16,6 @@ const Era = db.define('era', {
   eraPoints: DataTypes.DECIMAL,
   validatorz: DataTypes.INTEGER,
   nominatorz: DataTypes.INTEGER,
-})
+}, { modelName: 'era', sequelize: db })
 
 export default Era
