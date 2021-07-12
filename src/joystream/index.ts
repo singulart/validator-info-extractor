@@ -21,9 +21,9 @@ import {
   AccountId,
   Moment,
   EventRecord,
+  BlockHash,
 } from '@polkadot/types/interfaces'
 import { Vec } from '@polkadot/types'
-import { validator } from 'sequelize/types/lib/utils/validator-extras';
 import { ApiPromise } from '@polkadot/api';
 
 
@@ -43,18 +43,18 @@ export const processNext = async () => {
   setTimeout(() => processNext(), DELAY)
 }
 
-const getBlockHash = (api: Api, blockId: number) =>
-  api.rpc.chain.getBlockHash(blockId).then((array: any) => array.toHuman())
+const getBlockHash = (api: ApiPromise, blockId: number) =>
+  api.rpc.chain.getBlockHash(blockId).then((hash: BlockHash) => hash.toString())
 
-const getEraAtHash = (api: Api, hash: string) =>
+const getEraAtHash = (api: ApiPromise, hash: string) =>
   api.query.staking.activeEra
     .at(hash)
     .then((era) => era.unwrap().index.toNumber())
 
-const getEraAtBlock = async (api: Api, block: number) =>
+const getEraAtBlock = async (api: ApiPromise, block: number) =>
   getEraAtHash(api, await getBlockHash(api, block))
 
-const getTimestamp = async (api: Api, hash?: string) => {
+const getTimestamp = async (api: ApiPromise, hash?: string) => {
   const timestamp = hash
     ? await api.query.timestamp.now.at(hash)
     : await api.query.timestamp.now()
@@ -62,7 +62,7 @@ const getTimestamp = async (api: Api, hash?: string) => {
 }
 
 export const addBlock = async (
-  api: Api,
+  api: ApiPromise,
   header: { number: number; author: string }
 ) => {
   const id = +header.number
@@ -79,7 +79,7 @@ export const addBlock = async (
   console.log(`[Joystream] block ${id} ${q}`)
 }
 
-const processBlock = async (api: Api, id: number) => {
+const processBlock = async (api: ApiPromise, id: number) => {
 
   const exists = (await Block.findByPk(id))
   if (exists) return exists.get({plain: true})
@@ -100,14 +100,14 @@ const processBlock = async (api: Api, id: number) => {
   const extendedHeader = await api.derive.chain.getHeader(hash) as HeaderExtended
 
   const eraId = await getEraAtHash(api, hash)
-  const era = await Era.findOrCreate({ where: { id: eraId } })
+  const [era, created] = await Era.findOrCreate({ where: { id: eraId } })
 
   const block = Block.create({
     id: id, 
     hash: hash,
     timestamp: new Date(currentBlockTimestamp),
     blocktime: (currentBlockTimestamp - lastBlockTimestamp),
-    eraId: era[0].get({plain: true}).id,
+    eraId: era.get({plain: true}).id,
     validatorId: (await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } }))[0].get({plain: true}).id
   }, {returning: true})
 
@@ -118,7 +118,7 @@ const processBlock = async (api: Api, id: number) => {
 }
 
 const addValidatorStats = async (
-  api: Api,
+  api: ApiPromise,
   eraId: number,
   validator: string,
   blockHash: string,
@@ -142,12 +142,12 @@ const addValidatorStats = async (
     stake_total: total, 
     points: pointVal,
     rewards: 0,
-    commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission / 10000000
+    commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission.toNumber() / 10000000
   })
 }
 
 export const addBlockRange = async (
-  api: Api,
+  api: ApiPromise,
   startBlock: number,
   endBlock: number
 ) => {
@@ -195,8 +195,8 @@ const processEvents = async (api: ApiPromise, blockId: number, eraId: number, ha
 }
 
 
-const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraModel) => {
-  const era = eraModel[0].get({plain: true})
+const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraModel: Era) => {
+  const era = eraModel.get({plain: true})
   if (era.active) return
   const id = era.id
   processing = `era ${id}`
