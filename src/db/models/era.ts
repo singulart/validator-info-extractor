@@ -8,14 +8,12 @@ Era.init({
     type: DataTypes.INTEGER,
     primaryKey: true,
   },
-  waiting: DataTypes.INTEGER,
-  active: DataTypes.INTEGER,
-  slots: DataTypes.INTEGER,
+  waitingValidators: DataTypes.INTEGER,
+  allValidators: DataTypes.INTEGER,
   timestamp: DataTypes.DATE,
   stake: DataTypes.DECIMAL,
   eraPoints: DataTypes.DECIMAL,
-  validatorz: DataTypes.INTEGER,
-  nominatorz: DataTypes.INTEGER,
+  nominators: DataTypes.INTEGER,
 }, { modelName: 'era', sequelize: db })
 
 export default Era

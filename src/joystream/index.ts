@@ -7,8 +7,6 @@ import {
 } from '../db/models'
 import { Op } from 'sequelize'
 
-import {findByAccountAndEra} from '../db/models/validatorstats'
-
 import moment from 'moment'
 import chalk from 'chalk'
 
@@ -203,44 +201,43 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
   const id = era.id
   processing = `era ${id}`
   try {
-    const snapshot = await api.query.staking.snapshotValidators.at(hash);
-    if (snapshot.isEmpty) return
-    console.log(`[Joystream] Found validator info for era ${id}`)
+    const snapshotValidators = await api.query.staking.snapshotValidators.at(hash);
+    if (!snapshotValidators.isEmpty) {
+      console.log(`[Joystream] Found validator info for era ${id}`)
 
-    const {total, individual} = await api.query.staking.erasRewardPoints.at(hash, id)
-
-    const validators = snapshot.unwrap() as Vec<AccountId>;
-    const nominatorsSet = new Set()
-    const validatorCount = validators.length
-
-    for (let validator of validators) {
-      await addValidatorStats(api, id, validator.toHuman(), hash, individual);
+      const {total, individual} = await api.query.staking.erasRewardPoints.at(hash, id)
+  
+      const validators = snapshotValidators.unwrap() as Vec<AccountId>;
+      const validatorCount = validators.length
+  
       for (let validator of validators) {
-        const nom = await api.query.staking.erasStakers.at(hash, id, validator)
-        if(nom.total) {
-          for (let aNominator of nom.others) {
-            nominatorsSet.add(aNominator.who)
-          }
-        }
+        await addValidatorStats(api, id, validator.toHuman(), hash, individual);
       }
+  
+  
+      const slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
+      const chainTimestamp = (await api.query.timestamp.now.at(hash)) as Moment
+      const chainTime = moment(chainTimestamp.toNumber())
+  
+      Era.upsert({
+        id: id,
+        slots: slots,
+        allValidators: validatorCount,
+        waitingValidators: validatorCount > slots ? validatorCount - slots : 0,
+        stake: await api.query.staking.erasTotalStake.at(hash, id),
+        eraPoints: total,
+        timestamp: chainTime
+      })  
     }
 
-
-    const slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
-    const chainTimestamp = (await api.query.timestamp.now.at(hash)) as Moment
-    const chainTime = moment(chainTimestamp.toNumber())
-
-    Era.upsert({
-      id: id,
-      slots: slots,
-      active: Math.min(slots, validatorCount),
-      waiting: validatorCount > slots ? validatorCount - slots : 0,
-      stake: await api.query.staking.erasTotalStake.at(hash, id),
-      eraPoints: total,
-      timestamp: chainTime,
-      nominatorz: nominatorsSet.size,
-      validatorz: validatorCount
-    })
+    const snapshotNominators = await api.query.staking.snapshotNominators.at(hash);
+    if (!snapshotNominators.isEmpty) {
+      const nominators = snapshotNominators.unwrap() as Vec<AccountId>;
+      Era.upsert({
+        id: id,
+        nominators: nominators.length
+      })  
+    }
     return id;
 
   } catch (e) {
