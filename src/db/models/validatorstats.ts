@@ -11,7 +11,15 @@ ValidatorStats.init({
   points: DataTypes.INTEGER,
   rewards: DataTypes.DECIMAL,
   commission: DataTypes.DECIMAL
-}, {modelName: 'validator_stats', sequelize: db})
+},
+ 
+{modelName: 'validator_stats', sequelize: db, indexes: [
+  {
+    unique: true,
+    fields: ['accountId', 'eraId']
+  }
+ ]
+})
 
 
 export const findByAccountAndEra = (account: number, era: number): Promise<ValidatorStats> => {

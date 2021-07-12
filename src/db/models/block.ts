@@ -5,12 +5,12 @@ class Block extends Model {}
 
 Block.init({
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     primaryKey: true,
   },
   hash: DataTypes.STRING,
   timestamp: DataTypes.DATE,
-  blocktime: DataTypes.INTEGER,
+  blocktime: DataTypes.BIGINT,
 }, {modelName: 'block', sequelize: db})
 
 

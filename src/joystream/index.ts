@@ -5,6 +5,7 @@ import {
   Event,
   ValidatorStats
 } from '../db/models'
+import { Op } from 'sequelize'
 
 import {findByAccountAndEra} from '../db/models/validatorstats'
 
@@ -25,6 +26,7 @@ import {
 } from '@polkadot/types/interfaces'
 import { Vec } from '@polkadot/types'
 import { validator } from 'sequelize/types/lib/utils/validator-extras';
+import { ApiPromise } from '@polkadot/api';
 
 
 const DELAY = 0 // ms
@@ -99,7 +101,6 @@ const processBlock = async (api: Api, id: number) => {
   const currentBlockTimestamp = await getTimestamp(api, hash)
   const extendedHeader = await api.derive.chain.getHeader(hash) as HeaderExtended
 
-  //processEvents(api, id, block.hash)
   const eraId = await getEraAtHash(api, hash)
   const era = await Era.findOrCreate({ where: { id: eraId } })
 
@@ -113,6 +114,8 @@ const processBlock = async (api: Api, id: number) => {
   }, {returning: true})
 
   await importEraAtBlock(api, id, hash, era)
+  processEvents(api, id, eraId, hash)
+
   return block
 }
 
@@ -134,27 +137,15 @@ const addValidatorStats = async (
       break
     }
   }
-  let stats = await findByAccountAndEra(account.id, eraId)
-  if(!stats) {
-    ValidatorStats.create({
-      eraId: eraId, 
-      accountId: account.id, 
-      stake_own: own, 
-      stake_total: total, 
-      points: pointVal,
-      commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission / 10000000
-    })
-  } else {
-    ValidatorStats.update({
-      eraId: eraId, 
-      accountId: account.id, 
-      stake_own: own, 
-      stake_total: total, 
-      points: pointVal,
-      commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission / 10000000
-    }, {where: {id: stats.get({plain: true}).id}})
-  }
-  //TODO reward?
+  ValidatorStats.upsert({
+    eraId: eraId, 
+    accountId: account.id, 
+    stake_own: own, 
+    stake_total: total, 
+    points: pointVal,
+    rewards: 0,
+    commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission / 10000000
+  })
 }
 
 export const addBlockRange = async (
@@ -167,16 +158,37 @@ export const addBlockRange = async (
   }
 }
 
-
-
-const processEvents = async (api: Api, blockId: number, hash: string) => {
+const processEvents = async (api: ApiPromise, blockId: number, eraId: number, hash: string) => {
   processing = `events block ${blockId}`
   try {
     const blockEvents = await api.query.system.events.at(hash)
     blockEvents.forEach(({ event }: EventRecord) => {
       let { section, method, data } = event
-      //console.log(data);
-      Event.create({ blockId, section, method, data: JSON.stringify(data) })
+      if(section == 'staking' && method == 'Reward') {
+        Event.create({ blockId, section, method, data: JSON.stringify(data) })
+        Account.findOne(
+          {
+            where: {
+              key: data[0].toString()
+            }
+          }
+        ).then((beneficiaryAccount: Account) => {
+          if (beneficiaryAccount == null) {
+            console.log(`Rewarded address ${data[0].toString()} is probably a nominator. Skipping it..`)
+            return;
+          }
+          ValidatorStats.increment(
+            {
+              'rewards': Number(data[1])
+            }, 
+            {
+              where: {
+                [Op.and]: {eraId: eraId, accountId: beneficiaryAccount.get({plain: true}).id}
+              }
+            }
+          )
+        })
+      }
     })
   } catch (e) {
     console.log(`failed to fetch events for block  ${blockId} ${hash}`)
@@ -226,6 +238,8 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
       nominatorz: noms,
       validatorz: validatorCount
     })
+    return id;
+
   } catch (e) {
     console.error(`import era ${blockId} ${hash}`, e)
   }

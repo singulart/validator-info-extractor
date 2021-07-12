@@ -17,6 +17,7 @@ Era.hasMany(Block)
 Block.belongsTo(Account, { as: 'validator' })
 Block.belongsTo(Era)
 Block.hasMany(Event)
+
 Event.belongsTo(Block)
 
 ValidatorStats.belongsTo(Era)

@@ -4,9 +4,10 @@ import { DataTypes, Model } from 'sequelize'
 class Event extends Model {}
 
 Event.init({
-  available: DataTypes.INTEGER,  
-  locked: DataTypes.INTEGER,
-  frozen: DataTypes.INTEGER,
-}, { modelName: 'balance', sequelize: db })
+  blockId: DataTypes.INTEGER,
+  section: DataTypes.STRING,
+  method: DataTypes.STRING,
+  data: DataTypes.JSONB
+}, { modelName: 'event', sequelize: db })
 
 export default Event
