@@ -210,18 +210,21 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
     const {total, individual} = await api.query.staking.erasRewardPoints.at(hash, id)
 
     const validators = snapshot.unwrap() as Vec<AccountId>;
+    const nominatorsSet = new Set()
+    const validatorCount = validators.length
+
     for (let validator of validators) {
       await addValidatorStats(api, id, validator.toHuman(), hash, individual);
-    }
-
-    const validatorCount = validators.length
-    let noms = 0
-    for (let validator of validators) {
-      const nom = await api.query.staking.erasStakers.at(hash, id, validator)
-      if(nom.total) {
-        noms += 1;
+      for (let validator of validators) {
+        const nom = await api.query.staking.erasStakers.at(hash, id, validator)
+        if(nom.total) {
+          for (let aNominator of nom.others) {
+            nominatorsSet.add(aNominator.who)
+          }
+        }
       }
     }
+
 
     const slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
     const chainTimestamp = (await api.query.timestamp.now.at(hash)) as Moment
@@ -235,7 +238,7 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
       stake: await api.query.staking.erasTotalStake.at(hash, id),
       eraPoints: total,
       timestamp: chainTime,
-      nominatorz: noms,
+      nominatorz: nominatorsSet.size,
       validatorz: validatorCount
     })
     return id;
