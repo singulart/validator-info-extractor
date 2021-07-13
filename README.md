@@ -60,7 +60,7 @@ and
 	vs."eraId" 
 in 
 	(select subq.era from (select distinct("eraId") era, min(id) start_height, min(timestamp) start_time, max(id) end_height, max(timestamp) end_time, (max(id) - min(id)) as era_blocks from blocks where blocks.id > 1 and blocks.id < 2000000 group by blocks."eraId") subq) 
-and rewards > 0 order by "eraId";
+order by "eraId";
 ```
 
 Eras starts and ends (blocks and time)
