@@ -2,6 +2,7 @@ import { addBlock } from './joystream'
 import { connectUpstream } from './joystream/ws'
 import express from 'express'
 import ascii from './ascii'
+import db from './db'
 
 import {
     Block,
@@ -52,3 +53,40 @@ const server = app.listen(PORT, () =>
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+import {validatorStats, IValidatorReport, IReport} from './db/native_queries'
+const ADDRESS_LENGTH = 48
+app.get('/validator-report', async (req: any, res: any, next: any) => {
+    try {
+        const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : ''
+        const page = !isNaN(req.query.page) ? parseInt(req.query.page) : 1
+        const startBlock = !isNaN(req.query.start_block) ? parseInt(req.query.start_block) : -1
+        const endBlock = !isNaN(req.query.end_block) ? req.query.end_block : -1
+        console.log(`Start block = ${startBlock}, end block = ${endBlock}`)
+        if(startBlock > 0 && endBlock > 0 && endBlock > startBlock) {
+            db.query(validatorStats(address, startBlock, endBlock, -1, -1, page)).then(async (p: any) => {
+                const validationReport: IValidatorReport = {
+                    nextPage: true,
+                    startBlock: startBlock,
+                    endBlock: endBlock,
+                    startTime: (await Block.findOne({where: {id: startBlock}}))?.get({plain: true}).timestamp,
+                    endTime: (await Block.findOne({where: {id: endBlock}}))?.get({plain: true}).timestamp,
+                    startEra: (await Block.findOne({where: {id: startBlock}}))?.get({plain: true}).eraId,
+                    endEra: (await Block.findOne({where: {id: endBlock}}))?.get({plain: true}).eraId,
+                    totalCount: 99999999999999,
+                    report: p[0]
+                }
+                return res.json(validationReport)
+            })
+        } else {
+            const startTime = (req.query.start_time && (typeof req.query.start_time) === 'number') ? req.query.start_time : -1
+            const endTime = (req.query.end_time && (typeof req.query.end_time) === 'number') ? req.query.end_time : -1
+            if(startTime > 0 && endTime > 0 && endTime > startTime) {
+                db.query(validatorStats(address, -1, -1, startTime, endTime, page)).then((p: any) => res.json(p[0]))
+            } else {
+                db.query(validatorStats(address, -1, -1, -1, -1, page)).then((p: any) => res.json(p[0]))
+              }
+            }
+    } catch (err) {
+      return res.json({})
+    }
+  })
