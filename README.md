@@ -22,7 +22,7 @@ select a.key, "eraId", stake_total, stake_own, points, rewards, commission from 
 
 
 
-Main report to be execiuted by an endpoint
+Main report to be executed by an endpoint
 
 ```
 select 
