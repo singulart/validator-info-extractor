@@ -3,6 +3,7 @@ import { connectUpstream } from './joystream/ws'
 import express from 'express'
 import ascii from './ascii'
 import db from './db'
+import { Sequelize } from 'sequelize'
 
 import {
     Block,
@@ -58,20 +59,22 @@ const ADDRESS_LENGTH = 48
 app.get('/validator-report', async (req: any, res: any, next: any) => {
     try {
         const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : ''
-        const page = !isNaN(req.query.page) ? parseInt(req.query.page) : 1
-        const startBlock = !isNaN(req.query.start_block) ? parseInt(req.query.start_block) : -1
+        const page = !isNaN(req.query.page) ? req.query.page : 1
+        const startBlock = !isNaN(req.query.start_block) ? req.query.start_block : -1
         const endBlock = !isNaN(req.query.end_block) ? req.query.end_block : -1
         console.log(`Start block = ${startBlock}, end block = ${endBlock}`)
         if(startBlock > 0 && endBlock > 0 && endBlock > startBlock) {
             db.query(validatorStats(address, startBlock, endBlock, -1, -1, page)).then(async (p: any) => {
+                const dbBlockStart = (await Block.findOne({where: {id: startBlock}}))?.get({plain: true})
+                const dbBlockEnd = (await Block.findOne({where: {id: startBlock}}))?.get({plain: true})
                 const validationReport: IValidatorReport = {
                     nextPage: true,
                     startBlock: startBlock,
                     endBlock: endBlock,
-                    startTime: (await Block.findOne({where: {id: startBlock}}))?.get({plain: true}).timestamp,
-                    endTime: (await Block.findOne({where: {id: endBlock}}))?.get({plain: true}).timestamp,
-                    startEra: (await Block.findOne({where: {id: startBlock}}))?.get({plain: true}).eraId,
-                    endEra: (await Block.findOne({where: {id: endBlock}}))?.get({plain: true}).eraId,
+                    startTime: dbBlockStart.timestamp,
+                    endTime: dbBlockEnd.timestamp,
+                    startEra: dbBlockStart.eraId,
+                    endEra: dbBlockEnd.eraId,
                     totalCount: 99999999999999,
                     report: p[0]
                 }
@@ -83,7 +86,22 @@ app.get('/validator-report', async (req: any, res: any, next: any) => {
             if(startTime > 0 && endTime > 0 && endTime > startTime) {
                 db.query(validatorStats(address, -1, -1, startTime, endTime, page)).then((p: any) => res.json(p[0]))
             } else {
-                db.query(validatorStats(address, -1, -1, -1, -1, page)).then((p: any) => res.json(p[0]))
+                const dbBlockStart = (await Block.findOne({order: Sequelize.literal('id ASC'), limit: 1, offset: 0}))?.get({plain: true})
+                const dbBlockEnd = (await Block.findOne({order: Sequelize.literal('id DESC'), limit: 1, offset: 0}))?.get({plain: true}) 
+                db.query(validatorStats(address, -1, -1, -1, -1, page)).then((p: any) => {
+                    const validationReport: IValidatorReport = {
+                        nextPage: true,
+                        startBlock: dbBlockStart.id,
+                        endBlock: dbBlockEnd.id,
+                        startTime: dbBlockStart.timestamp,
+                        endTime: dbBlockEnd.timestamp,
+                        startEra: dbBlockStart.eraId,
+                        endEra: dbBlockEnd.eraId,
+                        totalCount: 99999999999999,
+                        report: p[0]
+                    }
+                    return res.json(validationReport)
+                })
               }
             }
     } catch (err) {
