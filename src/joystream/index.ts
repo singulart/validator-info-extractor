@@ -27,20 +27,14 @@ import { Vec } from '@polkadot/types'
 import { ApiPromise } from '@polkadot/api';
 
 
-const DELAY = 0 // ms
-let lastUpdate = 0
-let queuedAll = false
 let queue: any[] = []
 let processing = ''
-let busy = false
 
 export const processNext = async () => {
-  if (busy) return
   const task = queue.shift()
   if (!task) return
-  const result = await task()
-  busy = false
-  setTimeout(() => processNext(), DELAY)
+  await task()
+  processNext()
 }
 
 const getBlockHash = (api: ApiPromise, blockId: number) =>

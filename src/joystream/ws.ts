@@ -4,7 +4,7 @@ import { ApiPromise, WsProvider } from '@polkadot/api'
 import { types } from '@joystream/types'
 
 const wsLocation =
-    'ws://localhost:9944'
+    process.env.RPC_ENDPOINT || 'ws://localhost:9944'
     // 'wss://rome-rpc-endpoint.joystream.org:9944'
 
 export const connectUpstream = async (): Promise<ApiPromise> => {

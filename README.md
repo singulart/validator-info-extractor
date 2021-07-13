@@ -7,7 +7,13 @@ Example of how to extract info about eras and validators from the chain state
  yarn && yarn build
  ```
 
- ## Usage
+ ## Usage when running from scratch
+
+ Create empty postgresql database
+
+``` NODE_ENV=<database name goes here> node lib/init_db.js ```
+
+
  ```
 node lib/index.js 
  ```
