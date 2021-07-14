@@ -56,6 +56,15 @@ FROM
      ${startTime > 0 ? ` b.timestamp >= ${startTime} AND b.timestamp <= ${endTime} ` : ' AND 1=1 '}
    GROUP BY e.id) totalBlocks`
 
+export const findBlockByTime = (timestamp: string) => 
+`SELECT b.*,
+    b.timestamp,
+    ABS(EXTRACT(epoch
+                FROM (b.timestamp - '${timestamp}'::TIMESTAMP))) timediff
+FROM blocks b
+ORDER BY timediff
+LIMIT 1`
+
 export interface IValidatorReport {
     startBlock: number, 
     startEra: number, 
@@ -85,4 +94,8 @@ export interface ITotalCount {
 
 export interface ITotalBlockCount {
     totalBlocks: number
+}
+
+export interface IBlockTime {
+    id: number
 }

@@ -5,7 +5,7 @@ import cors from 'cors'
 import ascii from './ascii'
 import db from './db'
 import { QueryTypes, Sequelize } from 'sequelize'
-import {validatorStats, countTotalBlocksProduced, IValidatorReport, ITotalCount, ITotalBlockCount, pageSize} from './db/native_queries'
+import {validatorStats, countTotalBlocksProduced, findBlockByTime, IValidatorReport, ITotalCount, ITotalBlockCount, pageSize} from './db/native_queries'
 import { Header } from './types'
 
 import {
@@ -94,10 +94,28 @@ app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next:
             const startTime = !isNaN(req.query.start_time) ? req.query.start_time : -1
             const endTime = !isNaN(req.query.end_time) ? req.query.end_time : -1
             if(startTime > 0 && endTime > 0 && endTime > startTime) {
-                db.query(validatorStats(address, -1, -1, startTime, endTime, page)).then((p: any) => res.json(p[0]))
+                const dbBlockStart = (await db.query<Block>(findBlockByTime(startTime), {type: QueryTypes.SELECT, plain: true}))?.get()
+                const dbBlockEnd = (await db.query<Block>(findBlockByTime(endTime), {type: QueryTypes.SELECT, plain: true}))?.get()
+                const dbCount = (await db.query<ITotalCount>(validatorStats(address, -1, -1, startTime, endTime, page, true), {type: QueryTypes.SELECT, plain: true}))
+                const blockCount = (await db.query<ITotalBlockCount>(countTotalBlocksProduced(address, -1, -1, startTime, endTime), {type: QueryTypes.SELECT, plain: true}))
+                db.query(validatorStats(address, -1, -1, startTime, endTime, page)).then((p: any) => {
+                    const validationReport: IValidatorReport = {
+                        pageSize: pageSize,
+                        startBlock: dbBlockStart.id,
+                        endBlock: dbBlockEnd.id,
+                        startTime: dbBlockStart.timestamp,
+                        endTime: dbBlockEnd.timestamp,
+                        startEra: dbBlockStart.eraId,
+                        endEra: dbBlockEnd.eraId,
+                        totalCount: dbCount.totalCount,
+                        totalBlocks: blockCount.totalBlocks,
+                        report: p[0]
+                    }
+                    return res.json(validationReport)
+                })
             } else {
-                const dbBlockStart = (await Block.findOne({order: Sequelize.literal('id ASC'), limit: 1, offset: 0}))?.get({plain: true})
-                const dbBlockEnd = (await Block.findOne({order: Sequelize.literal('id DESC'), limit: 1, offset: 0}))?.get({plain: true}) 
+                const dbBlockStart = (await Block.findOne({order: Sequelize.literal('id ASC'), limit: 1, offset: 0, plain: true}))?.get()
+                const dbBlockEnd = (await Block.findOne({order: Sequelize.literal('id DESC'), limit: 1, offset: 0, plain: true}))?.get() 
                 const dbCount = (await db.query<ITotalCount>(validatorStats(address, -1, -1, -1, -1, page, true), {type: QueryTypes.SELECT, plain: true}))
                 const blockCount = (await db.query<ITotalBlockCount>(countTotalBlocksProduced(address, -1, -1, -1, -1), {type: QueryTypes.SELECT, plain: true}))
                 db.query(validatorStats(address, -1, -1, -1, -1, page)).then((p: any) => {
