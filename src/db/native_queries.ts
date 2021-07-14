@@ -1,6 +1,8 @@
+export const pageSize = 50
+
 export const validatorStats = (address: string, startBlock = -1, endBlock = -1, startTime = -1, endTime = -1, page = 1): string => 
 `select 
-	vs."eraId", 
+	vs."eraId" as id, 
     stake_total as "stakeTotal", 
     stake_own as "stakeOwn", 
     points, 
@@ -38,10 +40,9 @@ where ${address != '' ? `a.key = '${address}' and ` : ''}
         where ${startBlock > 0 ? `blocks.id >= ${startBlock} and blocks.id <= ${endBlock}` : '1 = 1'} 
         ${startTime > 0 ? `blocks.timestamp >= ${startTime} and blocks.timestamp <= ${endTime}` : ''} group by blocks."eraId") subq
         ) 
-order by "eraId" limit 50 offset ${50 * (page - 1)}`
+order by id limit 50 offset ${pageSize * (page - 1)}`
 
 export interface IValidatorReport {
-    nextPage: boolean,
     startBlock: number, 
     startEra: number, 
     endBlock: number,
@@ -49,11 +50,12 @@ export interface IValidatorReport {
     startTime: number,
     endTime: number,
     totalCount: number,
-    report: IReport[]
+    pageSize: number,
+    report: IValidatorEraStats[]
 }
 
-export interface IReport {
-    eraId: number,
+export interface IValidatorEraStats {
+    id: number,
     stakeTotal: number,
     stakeOwn: number,
     points: number,

@@ -1,15 +1,17 @@
 import { addBlock } from './joystream'
 import { connectUpstream } from './joystream/ws'
 import express from 'express'
+import cors from 'cors'
 import ascii from './ascii'
 import db from './db'
 import { Sequelize } from 'sequelize'
+import {validatorStats, IValidatorReport, pageSize} from './db/native_queries'
+import { Header } from './types'
 
 import {
     Block,
     StartBlock
 } from './db/models'
-import { Header } from './types'
 
 const PORT: number = process.env.PORT ? +process.env.PORT : 3500
 
@@ -50,13 +52,18 @@ const server = app.listen(PORT, () =>
     )
 })()
 
-
+app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-import {validatorStats, IValidatorReport, IReport} from './db/native_queries'
+const corsOptions = {
+    origin: process.env.ALOWED_ORIGIN || 'http://localhost:3000',
+    optionsSuccessStatus: 200
+}
+
 const ADDRESS_LENGTH = 48
-app.get('/validator-report', async (req: any, res: any, next: any) => {
+
+app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next: any) => {
     try {
         const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : ''
         const page = !isNaN(req.query.page) ? req.query.page : 1
@@ -68,7 +75,7 @@ app.get('/validator-report', async (req: any, res: any, next: any) => {
                 const dbBlockStart = (await Block.findOne({where: {id: startBlock}}))?.get({plain: true})
                 const dbBlockEnd = (await Block.findOne({where: {id: startBlock}}))?.get({plain: true})
                 const validationReport: IValidatorReport = {
-                    nextPage: true,
+                    pageSize: pageSize,
                     startBlock: startBlock,
                     endBlock: endBlock,
                     startTime: dbBlockStart.timestamp,
@@ -90,7 +97,7 @@ app.get('/validator-report', async (req: any, res: any, next: any) => {
                 const dbBlockEnd = (await Block.findOne({order: Sequelize.literal('id DESC'), limit: 1, offset: 0}))?.get({plain: true}) 
                 db.query(validatorStats(address, -1, -1, -1, -1, page)).then((p: any) => {
                     const validationReport: IValidatorReport = {
-                        nextPage: true,
+                        pageSize: pageSize,
                         startBlock: dbBlockStart.id,
                         endBlock: dbBlockEnd.id,
                         startTime: dbBlockStart.timestamp,
