@@ -92,8 +92,8 @@ app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next:
             ))
         } else {
 
-            const startTime = moment.utc(req.query.start_time, 'YYYY-MM-DD')
-            const endTime = moment.utc(req.query.end_time, 'YYYY-MM-DD')
+            const startTime = moment.utc(req.query.start_time, 'YYYY-MM-DD').startOf('d')
+            const endTime = moment.utc(req.query.end_time, 'YYYY-MM-DD').endOf('d')
             console.log(`Start time: [${startTime}]-[${endTime}]`)
             if(endTime.isAfter(startTime)) {
                 return res.json(await fetchReportPage(
