@@ -127,7 +127,7 @@ const fetchReportPage = async (
     lastBlockSql: string,
     ): Promise<IValidatorReport> => {
 
-    const dbBlockStart = (await db.query<any>(firstBlockSql, opts)) // TODO <Block> instead of <any> produces an object with no get() function
+    const dbBlockStart = (await db.query<any>(firstBlockSql, opts)) // TODO <Block> instead of <any> produces an object with no get() function  
     const dbBlockEnd = (await db.query<any>(lastBlockSql, opts))
     const dbCount = (await db.query<ITotalCount>(validatorStatsCountSql, opts))
     const blockCount = (await db.query<ITotalBlockCount>(totalBlocksSql, opts))
