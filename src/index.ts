@@ -79,8 +79,8 @@ app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next:
     try {
         const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : ''
         const page = !isNaN(req.query.page) ? req.query.page : 1
-        const startBlock = !isNaN(req.query.start_block) ? req.query.start_block : -1
-        const endBlock = !isNaN(req.query.end_block) ? req.query.end_block : -1
+        const startBlock = !isNaN(req.query.start_block) ? +req.query.start_block : -1
+        const endBlock = !isNaN(req.query.end_block) ? +req.query.end_block : -1
         console.log(`Start block = ${startBlock}, end block = ${endBlock}`)
         if(startBlock > 0 && endBlock > 0 && endBlock > startBlock) {
             return res.json(await fetchReportPage(
