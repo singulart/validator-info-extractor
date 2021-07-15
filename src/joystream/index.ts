@@ -13,7 +13,6 @@ import chalk from 'chalk'
 import { HeaderExtended } from '@polkadot/api-derive/type/types';
 import {
   Api,
-  Status,
 } from '../types'
 
 
@@ -99,7 +98,7 @@ const processBlock = async (api: ApiPromise, id: number) => {
   const block = Block.create({
     id: id, 
     hash: hash,
-    timestamp: new Date(currentBlockTimestamp),
+    timestamp: moment.utc(currentBlockTimestamp).toDate(),
     blocktime: (currentBlockTimestamp - lastBlockTimestamp),
     eraId: era.get({plain: true}).id,
     validatorId: (await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } }))[0].get({plain: true}).id
@@ -135,7 +134,6 @@ const addValidatorStats = async (
     stake_own: own, 
     stake_total: total, 
     points: pointVal,
-    rewards: 0,
     commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission.toNumber() / 10000000
   })
 }
@@ -157,35 +155,34 @@ const processEvents = async (api: ApiPromise, blockId: number, eraId: number, ha
     blockEvents.forEach(({ event }: EventRecord) => {
       let { section, method, data } = event
       if(section == 'staking' && method == 'Reward') {
+        const addressCredited = data[0].toString()
         Event.create({ blockId, section, method, data: JSON.stringify(data) })
         Account.findOne(
           {
             where: {
-              key: data[0].toString()
+              key: addressCredited
             }
           }
-        ).then((beneficiaryAccount: Account) => {
+        ).then(async (beneficiaryAccount: Account) => {
+          let address = ''
           if (beneficiaryAccount == null) {
-            console.log(`Rewarded address ${data[0].toString()} is probably a nominator. Skipping it..`)
-            return;
+            address = (await Account.create({key: addressCredited}, {returning: true})).get({plain: true}).id
+          } else {
+            address = beneficiaryAccount.get({plain: true}).id
           }
-          ValidatorStats.increment(
+          ValidatorStats.upsert(
             {
-              'rewards': Number(data[1])
-            }, 
-            {
-              where: {
-                [Op.and]: {eraId: eraId, accountId: beneficiaryAccount.get({plain: true}).id}
-              }
+              accountId: address, 
+              eraId: eraId,
+              rewards: Number(data[1])
             }
-          )
+          )  
         })
       }
     })
   } catch (e) {
     console.log(`failed to fetch events for block  ${blockId} ${hash}`)
   }
-  // TODO catch votes, posts, proposals?
 }
 
 

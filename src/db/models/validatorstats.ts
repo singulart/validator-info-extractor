@@ -6,13 +6,12 @@ class ValidatorStats extends Model {}
 ValidatorStats.init({
   accountId: DataTypes.INTEGER,
   eraId: DataTypes.INTEGER,
-  stake_total: DataTypes.DECIMAL,
-  stake_own: DataTypes.DECIMAL,
-  points: DataTypes.INTEGER,
-  rewards: DataTypes.DECIMAL,
+  stake_total: { type: DataTypes.DECIMAL, defaultValue: 0},
+  stake_own: { type: DataTypes.DECIMAL, defaultValue: 0},
+  points: { type: DataTypes.INTEGER, defaultValue: 0},
+  rewards: { type: DataTypes.DECIMAL, defaultValue: 0},
   commission: DataTypes.DECIMAL
-},
- 
+}, 
 {modelName: 'validator_stats', sequelize: db, indexes: [
   {
     unique: true,
@@ -21,6 +20,7 @@ ValidatorStats.init({
  ]
 })
 
+ValidatorStats.removeAttribute('id')
 
 export const findByAccountAndEra = (account: number, era: number): Promise<ValidatorStats> => {
   return ValidatorStats.findOne( 
