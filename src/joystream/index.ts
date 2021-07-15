@@ -95,7 +95,7 @@ const processBlock = async (api: ApiPromise, id: number) => {
   const eraId = await getEraAtHash(api, hash)
   const [era, created] = await Era.findOrCreate({ where: { id: eraId } })
 
-  const block = Block.create({
+  const block = await Block.create({
     id: id, 
     hash: hash,
     timestamp: moment.utc(currentBlockTimestamp).toDate(),
@@ -152,11 +152,11 @@ const processEvents = async (api: ApiPromise, blockId: number, eraId: number, ha
   processing = `events block ${blockId}`
   try {
     const blockEvents = await api.query.system.events.at(hash)
-    blockEvents.forEach(({ event }: EventRecord) => {
+    blockEvents.forEach(async ({ event }: EventRecord) => {
       let { section, method, data } = event
       if(section == 'staking' && method == 'Reward') {
         const addressCredited = data[0].toString()
-        Event.create({ blockId, section, method, data: JSON.stringify(data) })
+        await Event.create({ blockId, section, method, data: JSON.stringify(data) })
         Account.findOne(
           {
             where: {
@@ -170,7 +170,7 @@ const processEvents = async (api: ApiPromise, blockId: number, eraId: number, ha
           } else {
             address = beneficiaryAccount.get({plain: true}).id
           }
-          ValidatorStats.upsert(
+          await ValidatorStats.upsert(
             {
               accountId: address, 
               eraId: eraId,
@@ -210,7 +210,7 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
       const chainTimestamp = (await api.query.timestamp.now.at(hash)) as Moment
       const chainTime = moment(chainTimestamp.toNumber())
   
-      Era.upsert({
+      await Era.upsert({
         id: id,
         slots: slots,
         allValidators: validatorCount,
@@ -224,7 +224,7 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
     const snapshotNominators = await api.query.staking.snapshotNominators.at(hash);
     if (!snapshotNominators.isEmpty) {
       const nominators = snapshotNominators.unwrap() as Vec<AccountId>;
-      Era.upsert({
+      await Era.upsert({
         id: id,
         nominators: nominators.length
       })  
