@@ -1,6 +1,7 @@
+import {Moment} from 'moment'
 export const pageSize = 50
 
-export const validatorStats = (address: string, startBlock = -1, endBlock = -1, startTime = -1, endTime = -1, page = 1, countQuery = false): string => 
+export const validatorStats = (address: string, startBlock = -1, endBlock = -1, startTime: Moment, endTime: Moment, page = 1, countQuery = false): string => 
 `select 
 	${countQuery ? ' count(vs."eraId")::integer as "totalCount" ' : ` vs."eraId" as id, 
     stake_total as "stakeTotal", 
@@ -38,11 +39,11 @@ where ${address != '' ? `a.key = '${address}' and ` : ''}
             (max(id) - min(id)) as era_blocks 
         from blocks 
         where ${startBlock > 0 ? ` blocks.id >= ${startBlock} and blocks.id <= ${endBlock} ` : '1 = 1'} 
-        ${startTime > 0 ? ` blocks.timestamp >= ${startTime} and blocks.timestamp <= ${endTime} ` : ''} group by blocks."eraId") subq
+        ${startTime ? ` AND blocks.timestamp >= '${startTime.toISOString()}'::date and blocks.timestamp <= '${endTime.toISOString()}'::date ` : ''} group by blocks."eraId") subq
         ) ${countQuery ? '' : ` order by id limit 50 offset ${pageSize * (page - 1)} `}`
 
 
-export const countTotalBlocksProduced = (address: string, startBlock = -1, endBlock = -1, startTime = -1, endTime = -1) => 
+export const countTotalBlocksProduced = (address: string, startBlock = -1, endBlock = -1, startTime: Moment = null, endTime: Moment = null) => 
 
 `SELECT sum(totalBlocks.blocks_cnt) as "totalBlocks"
 FROM
@@ -53,16 +54,30 @@ FROM
    INNER JOIN accounts a ON a.id = b."validatorId"
    WHERE ${address != '' ? `a.key = '${address}' 
      AND ` : ''} ${startBlock > 0 ? ` b.id >= ${startBlock} AND b.id <= ${endBlock} ` : ' 1=1 '} 
-     ${startTime > 0 ? ` b.timestamp >= ${startTime} AND b.timestamp <= ${endTime} ` : ' AND 1=1 '}
+     ${startTime ? ` AND b.timestamp >= '${startTime.toISOString()}'::date AND b.timestamp <= '${endTime.toISOString()}'::date ` : ' AND 1=1 '}
    GROUP BY e.id) totalBlocks`
 
-export const findBlockByTime = (timestamp: string) => 
-`SELECT b.*,
-    b.timestamp,
-    ABS(EXTRACT(epoch
-                FROM (b.timestamp - '${timestamp}'::TIMESTAMP))) timediff
+export const findBlockByTime = (timeMoment: Moment) => 
+`SELECT b.*
 FROM blocks b
-ORDER BY timediff
+ORDER BY (ABS(EXTRACT(epoch
+    FROM (b.timestamp - '${timeMoment.toISOString()}'::date))))
+LIMIT 1`
+
+export const findFirstAuthoredBlock = (blockIdStart: number, blockIdEnd: number, addr: string) => 
+`SELECT b.*
+FROM blocks b
+INNER JOIN accounts a ON a.id = b."validatorId" AND a.key = '${addr}' 
+WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd}
+ORDER BY b.id
+LIMIT 1`
+
+export const findLastAuthoredBlock = (blockIdStart: number, blockIdEnd: number, addr: string) => 
+`SELECT b.*
+FROM blocks b
+INNER JOIN accounts a ON a.id = b."validatorId" AND a.key = '${addr}' 
+WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd}
+ORDER BY b.id DESC
 LIMIT 1`
 
 export interface IValidatorReport {
@@ -94,8 +109,4 @@ export interface ITotalCount {
 
 export interface ITotalBlockCount {
     totalBlocks: number
-}
-
-export interface IBlockTime {
-    id: number
 }

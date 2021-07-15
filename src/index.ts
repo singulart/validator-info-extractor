@@ -4,8 +4,19 @@ import express from 'express'
 import cors from 'cors'
 import ascii from './ascii'
 import db from './db'
-import { QueryTypes, Sequelize } from 'sequelize'
-import {validatorStats, countTotalBlocksProduced, findBlockByTime, IValidatorReport, ITotalCount, ITotalBlockCount, pageSize} from './db/native_queries'
+import moment from 'moment'
+import { QueryOptionsWithType, QueryTypes, Sequelize } from 'sequelize'
+import {
+    validatorStats, 
+    countTotalBlocksProduced, 
+    findBlockByTime, 
+    findFirstAuthoredBlock,
+    findLastAuthoredBlock,
+    IValidatorReport, 
+    ITotalCount, 
+    ITotalBlockCount, 
+    IValidatorEraStats,
+    pageSize} from './db/native_queries'
 import { Header } from './types'
 
 import {
@@ -19,7 +30,6 @@ const app = express()
 const server = app.listen(PORT, () =>
   console.log(`[Express] Listening on port ${PORT}`, ascii)
 )
-
 
 ;(async () => {
   
@@ -63,6 +73,8 @@ const corsOptions = {
 
 const ADDRESS_LENGTH = 48
 
+const opts = {type: QueryTypes.SELECT, plain: true} as QueryOptionsWithType<QueryTypes.SELECT> & { plain: true }
+
 app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next: any) => {
     try {
         const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : ''
@@ -71,71 +83,69 @@ app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next:
         const endBlock = !isNaN(req.query.end_block) ? req.query.end_block : -1
         console.log(`Start block = ${startBlock}, end block = ${endBlock}`)
         if(startBlock > 0 && endBlock > 0 && endBlock > startBlock) {
-            const dbCount = (await db.query<ITotalCount>(validatorStats(address, startBlock, endBlock, -1, -1, page, true), {type: QueryTypes.SELECT, plain: true}))
-            const blockCount = (await db.query<ITotalBlockCount>(countTotalBlocksProduced(address, startBlock, endBlock, -1, -1), {type: QueryTypes.SELECT, plain: true}))
-            db.query(validatorStats(address, startBlock, endBlock, -1, -1, page)).then(async (p: any) => {
-                const dbBlockStart = (await Block.findOne({where: {id: startBlock}}))?.get({plain: true})
-                const dbBlockEnd = (await Block.findOne({where: {id: startBlock}}))?.get({plain: true})
-                const validationReport: IValidatorReport = {
-                    pageSize: pageSize,
-                    startBlock: startBlock,
-                    endBlock: endBlock,
-                    startTime: dbBlockStart.timestamp,
-                    endTime: dbBlockEnd.timestamp,
-                    startEra: dbBlockStart.eraId,
-                    endEra: dbBlockEnd.eraId,
-                    totalCount: dbCount.totalCount,
-                    totalBlocks: blockCount.totalBlocks,
-                    report: p[0]
-                }
-                return res.json(validationReport)
-            })
+            return res.json(await fetchReportPage(
+                validatorStats(address, startBlock, endBlock, null, null, page), 
+                validatorStats(address, startBlock, endBlock, null, null, page, true), 
+                countTotalBlocksProduced(address, startBlock, endBlock),
+                findFirstAuthoredBlock(startBlock, endBlock, address),
+                findLastAuthoredBlock(startBlock, endBlock, address)
+            ))
         } else {
-            const startTime = !isNaN(req.query.start_time) ? req.query.start_time : -1
-            const endTime = !isNaN(req.query.end_time) ? req.query.end_time : -1
-            if(startTime > 0 && endTime > 0 && endTime > startTime) {
-                const dbBlockStart = (await db.query<Block>(findBlockByTime(startTime), {type: QueryTypes.SELECT, plain: true}))?.get()
-                const dbBlockEnd = (await db.query<Block>(findBlockByTime(endTime), {type: QueryTypes.SELECT, plain: true}))?.get()
-                const dbCount = (await db.query<ITotalCount>(validatorStats(address, -1, -1, startTime, endTime, page, true), {type: QueryTypes.SELECT, plain: true}))
-                const blockCount = (await db.query<ITotalBlockCount>(countTotalBlocksProduced(address, -1, -1, startTime, endTime), {type: QueryTypes.SELECT, plain: true}))
-                db.query(validatorStats(address, -1, -1, startTime, endTime, page)).then((p: any) => {
-                    const validationReport: IValidatorReport = {
-                        pageSize: pageSize,
-                        startBlock: dbBlockStart.id,
-                        endBlock: dbBlockEnd.id,
-                        startTime: dbBlockStart.timestamp,
-                        endTime: dbBlockEnd.timestamp,
-                        startEra: dbBlockStart.eraId,
-                        endEra: dbBlockEnd.eraId,
-                        totalCount: dbCount.totalCount,
-                        totalBlocks: blockCount.totalBlocks,
-                        report: p[0]
-                    }
-                    return res.json(validationReport)
-                })
+
+            const startTime = moment.utc(req.query.start_time, 'YYYY-MM-DD')
+            const endTime = moment.utc(req.query.end_time, 'YYYY-MM-DD')
+            console.log(`Start time: [${startTime}]-[${endTime}]`)
+            if(endTime.isAfter(startTime)) {
+                return res.json(await fetchReportPage(
+                    validatorStats(address, -1, -1, startTime, endTime, page), 
+                    validatorStats(address, -1, -1, startTime, endTime, page, true), 
+                    countTotalBlocksProduced(address, -1, -1, startTime, endTime),
+                    findBlockByTime(startTime), 
+                    findBlockByTime(endTime) 
+                  ))
             } else {
-                const dbBlockStart = (await Block.findOne({order: Sequelize.literal('id ASC'), limit: 1, offset: 0, plain: true}))?.get()
-                const dbBlockEnd = (await Block.findOne({order: Sequelize.literal('id DESC'), limit: 1, offset: 0, plain: true}))?.get() 
-                const dbCount = (await db.query<ITotalCount>(validatorStats(address, -1, -1, -1, -1, page, true), {type: QueryTypes.SELECT, plain: true}))
-                const blockCount = (await db.query<ITotalBlockCount>(countTotalBlocksProduced(address, -1, -1, -1, -1), {type: QueryTypes.SELECT, plain: true}))
-                db.query(validatorStats(address, -1, -1, -1, -1, page)).then((p: any) => {
-                    const validationReport: IValidatorReport = {
-                        pageSize: pageSize,
-                        startBlock: dbBlockStart.id,
-                        endBlock: dbBlockEnd.id,
-                        startTime: dbBlockStart.timestamp,
-                        endTime: dbBlockEnd.timestamp,
-                        startEra: dbBlockStart.eraId,
-                        endEra: dbBlockEnd.eraId,
-                        totalCount: dbCount.totalCount,
-                        totalBlocks: blockCount.totalBlocks,
-                        report: p[0]
-                    }
-                    return res.json(validationReport)
-                })
+                return res.json(await fetchReportPage(
+                    validatorStats(address, -1, -1, null, null, page), 
+                    validatorStats(address, -1, -1, null, null, page, true), 
+                    countTotalBlocksProduced(address),
+                    findFirstAuthoredBlock(startBlock, endBlock, address),
+                    findLastAuthoredBlock(startBlock, endBlock, address)
+                    ))
               }
             }
     } catch (err) {
-      return res.json({})
+        console.log(err)
+        return res.json({})
     }
   })
+
+const fetchReportPage = async (
+    validatorStatsSql: string, 
+    validatorStatsCountSql: string, 
+    totalBlocksSql: string,
+    firstBlockSql: string,
+    lastBlockSql: string,
+    ): Promise<IValidatorReport> => {
+
+    const dbBlockStart = (await db.query<any>(firstBlockSql, opts)) // TODO <Block> instead of <any> produces an object with no get() function
+    const dbBlockEnd = (await db.query<any>(lastBlockSql, opts))
+    const dbCount = (await db.query<ITotalCount>(validatorStatsCountSql, opts))
+    const blockCount = (await db.query<ITotalBlockCount>(totalBlocksSql, opts))
+    console.log(`Found blocks: [${JSON.stringify(dbBlockStart)}, ${JSON.stringify(dbBlockStart)}], [${dbCount.totalCount}, ${blockCount.totalBlocks | 0}]`)
+
+    return db.query<IValidatorEraStats>(validatorStatsSql, {type: QueryTypes.SELECT}).then((stats: IValidatorEraStats[]) => {
+        const validationReport: IValidatorReport = {
+            pageSize: pageSize,
+            totalCount: dbCount.totalCount,
+            startBlock: dbBlockStart?.id,
+            endBlock: dbBlockEnd?.id,
+            startTime: dbBlockStart?.timestamp,
+            endTime: dbBlockEnd?.timestamp,
+            startEra: dbBlockStart?.eraId,
+            endEra: dbBlockEnd?.eraId,
+            totalBlocks: blockCount.totalBlocks | 0,
+            report: stats
+        }
+        return validationReport
+    })
+}
