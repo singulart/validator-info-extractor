@@ -8,6 +8,8 @@ Block.init({
     type: DataTypes.BIGINT,
     primaryKey: true,
   },
+  validatorId: {type: DataTypes.INTEGER, allowNull: false},
+  eraId: {type: DataTypes.INTEGER, allowNull: false},
   hash: DataTypes.STRING,
   timestamp: DataTypes.DATE,
   blocktime: DataTypes.BIGINT,

@@ -5,7 +5,6 @@ import {
   Event,
   ValidatorStats
 } from '../db/models'
-import { Op } from 'sequelize'
 
 import moment from 'moment'
 import chalk from 'chalk'
@@ -25,7 +24,6 @@ import {
 import { Vec } from '@polkadot/types'
 import { ApiPromise } from '@polkadot/api';
 
-
 let queue: any[] = []
 let processing = ''
 
@@ -36,6 +34,8 @@ export const processNext = async () => {
   processNext()
 }
 
+const accounts = new Map<string, any>()
+
 const getBlockHash = (api: ApiPromise, blockId: number) =>
   api.rpc.chain.getBlockHash(blockId).then((hash: BlockHash) => hash.toString())
 
@@ -43,6 +43,16 @@ const getEraAtHash = (api: ApiPromise, hash: string) =>
   api.query.staking.activeEra
     .at(hash)
     .then((era) => era.unwrap().index.toNumber())
+
+const getAccount = async (address: string) => {
+    if (accounts.get(address)) {
+      return accounts.get(address)
+    } else {
+      const account = (await Account.findOrCreate({where: {key : address}}))[0].get({plain: true})
+      accounts.set(address, account)
+      return account
+    }
+}
 
 const getEraAtBlock = async (api: ApiPromise, block: number) =>
   getEraAtHash(api, await getBlockHash(api, block))
@@ -79,63 +89,86 @@ const processBlock = async (api: ApiPromise, id: number) => {
 
   processing = `block ${id}`
   console.log(processing)
-  const last = (await Block.findByPk(id - 1))
-  let lastBlockTimestamp;
-  if (last) {
-    lastBlockTimestamp = last.get({plain: true}).timestamp.getTime();
-  } else {
-    let lastBlockHash = await getBlockHash(api, id - 1);
-    lastBlockTimestamp = await getTimestamp(api, lastBlockHash);
-  }
 
+  const previousBlockModel = (await Block.findByPk(id - 1))
+  let lastBlockTimestamp = 0
+  let lastBlockHash = ''
+  let lastEraId = 0
+  if (previousBlockModel) {
+    const previousDbBlock = previousBlockModel.get({plain: true})
+    lastBlockTimestamp = previousDbBlock.timestamp.getTime();
+    lastBlockHash = previousDbBlock.hash
+    lastEraId = previousDbBlock.eraId
+  } else {
+    lastBlockHash = await getBlockHash(api, id - 1);
+    lastBlockTimestamp = await getTimestamp(api, lastBlockHash);
+    lastEraId = await getEraAtHash(api, lastBlockHash)
+  }
   const hash = await getBlockHash(api, id)
   const currentBlockTimestamp = await getTimestamp(api, hash)
   const extendedHeader = await api.derive.chain.getHeader(hash) as HeaderExtended
 
   const eraId = await getEraAtHash(api, hash)
-  const [era, created] = await Era.findOrCreate({ where: { id: eraId } })
+  let chainTime
+  if(eraId - lastEraId === 1) {
+    console.log('This block marks the start of new era. Updating the previous era stats')
+    const {total, individual} = await api.query.staking.erasRewardPoints.at(lastBlockHash, lastEraId)
+    const slots = (await api.query.staking.validatorCount.at(lastBlockHash)).toNumber()
+    const newEraTime = (await api.query.timestamp.now.at(hash)) as Moment
+    chainTime = moment(newEraTime.toNumber())
 
-  const block = await Block.create({
+    await Era.upsert({ // update stats for previous era
+      id: lastEraId,
+      slots: slots,
+      stake: await api.query.staking.erasTotalStake.at(hash, lastEraId),
+      eraPoints: total
+    })
+
+
+    const validatorStats = await ValidatorStats.findAll({where: {eraId: lastEraId}, include: [Account]})
+    for (let stat of validatorStats) {
+      const validatorStats = stat.get({plain: true})
+      const validatorAccount = validatorStats.account.key
+      console.log(validatorAccount)
+      let pointVal = 0;
+      for(const [key, value] of individual.entries()) {
+        if(key == validatorAccount) {
+          pointVal = value.toNumber()
+          break
+        }
+      }
+
+      const {total, own} = await api.query.staking.erasStakers.at(lastBlockHash, lastEraId, validatorAccount)
+
+      ValidatorStats.upsert({
+        eraId: lastEraId, 
+        accountId: validatorStats.accountId, 
+        stake_own: own, 
+        stake_total: total, 
+        points: pointVal,
+        commission: (await api.query.staking.erasValidatorPrefs.at(lastBlockHash, eraId, validatorAccount)).commission.toNumber() / 10000000
+      })
+    }
+  
+  }
+  const [era, created] = await Era.upsert({ // add the new are with just a timestamp of its first block
+    id: eraId,
+    timestamp: chainTime
+  }, {returning: true})
+
+  const block = await Block.upsert({
     id: id, 
     hash: hash,
     timestamp: moment.utc(currentBlockTimestamp).toDate(),
     blocktime: (currentBlockTimestamp - lastBlockTimestamp),
     eraId: era.get({plain: true}).id,
-    validatorId: (await Account.findOrCreate({ where: { key: extendedHeader.author.toHuman() } }))[0].get({plain: true}).id
+    validatorId: (await getAccount(extendedHeader.author.toHuman())).id
   }, {returning: true})
 
   await importEraAtBlock(api, id, hash, era)
   processEvents(api, id, eraId, hash)
 
   return block
-}
-
-const addValidatorStats = async (
-  api: ApiPromise,
-  eraId: number,
-  validator: string,
-  blockHash: string,
-  points: Map<string, number>
-) => {
-
-  const accountModel = await Account.findOrCreate({ where: { key: validator } })
-  const account = accountModel[0].get({plain: true})
-  const {total, own} = await api.query.staking.erasStakers.at(blockHash, eraId, validator)
-  let pointVal = 0;
-  for(const [key, value] of points.entries()) {
-    if(key == validator) {
-      pointVal = value
-      break
-    }
-  }
-  ValidatorStats.upsert({
-    eraId: eraId, 
-    accountId: account.id, 
-    stake_own: own, 
-    stake_total: total, 
-    points: pointVal,
-    commission: (await api.query.staking.erasValidatorPrefs.at(blockHash, eraId, validator)).commission.toNumber() / 10000000
-  })
 }
 
 export const addBlockRange = async (
@@ -196,28 +229,23 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
     if (!snapshotValidators.isEmpty) {
       console.log(`[Joystream] Found validator info for era ${id}`)
 
-      const {total, individual} = await api.query.staking.erasRewardPoints.at(hash, id)
-  
       const validators = snapshotValidators.unwrap() as Vec<AccountId>;
       const validatorCount = validators.length
   
       for (let validator of validators) {
-        await addValidatorStats(api, id, validator.toHuman(), hash, individual);
+        // create stub records, which will be populated with stats on the first block of the next era
+        ValidatorStats.upsert({
+          eraId: id, 
+          accountId: (await getAccount(validator.toHuman())).id, 
+        })
       }
   
-  
       const slots = (await api.query.staking.validatorCount.at(hash)).toNumber()
-      const chainTimestamp = (await api.query.timestamp.now.at(hash)) as Moment
-      const chainTime = moment(chainTimestamp.toNumber())
   
       await Era.upsert({
         id: id,
-        slots: slots,
         allValidators: validatorCount,
         waitingValidators: validatorCount > slots ? validatorCount - slots : 0,
-        stake: await api.query.staking.erasTotalStake.at(hash, id),
-        eraPoints: total,
-        timestamp: chainTime
       })  
     }
 

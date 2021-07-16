@@ -4,8 +4,8 @@ import { DataTypes, Op, Model } from 'sequelize'
 class ValidatorStats extends Model {}
 
 ValidatorStats.init({
-  accountId: DataTypes.INTEGER,
-  eraId: DataTypes.INTEGER,
+  accountId: {type: DataTypes.INTEGER, allowNull: false},
+  eraId: {type: DataTypes.INTEGER, allowNull: false},
   stake_total: { type: DataTypes.DECIMAL, defaultValue: 0},
   stake_own: { type: DataTypes.DECIMAL, defaultValue: 0},
   points: { type: DataTypes.INTEGER, defaultValue: 0},

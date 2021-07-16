@@ -68,7 +68,7 @@ export const findFirstAuthoredBlock = (blockIdStart: number, blockIdEnd: number,
 `SELECT b.*
 FROM blocks b
 INNER JOIN accounts a ON a.id = b."validatorId" AND a.key = '${addr}' 
-WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd}
+${blockIdStart > 0 ? ` WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd} ` : ''}
 ORDER BY b.id
 LIMIT 1`
 
@@ -76,7 +76,7 @@ export const findLastAuthoredBlock = (blockIdStart: number, blockIdEnd: number, 
 `SELECT b.*
 FROM blocks b
 INNER JOIN accounts a ON a.id = b."validatorId" AND a.key = '${addr}' 
-WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd}
+${blockIdStart > 0 ? ` WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd} ` : ''}
 ORDER BY b.id DESC
 LIMIT 1`
 

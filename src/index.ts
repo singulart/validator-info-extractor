@@ -27,7 +27,8 @@ import {
 const PORT: number = process.env.PORT ? +process.env.PORT : 3500
 
 const app = express()
-const server = app.listen(PORT, () =>
+
+app.listen(PORT, () =>
   console.log(`[Express] Listening on port ${PORT}`, ascii)
 )
 
@@ -131,7 +132,6 @@ const fetchReportPage = async (
     const dbBlockEnd = (await db.query<any>(lastBlockSql, opts))
     const dbCount = (await db.query<ITotalCount>(validatorStatsCountSql, opts))
     const blockCount = (await db.query<ITotalBlockCount>(totalBlocksSql, opts))
-    console.log(`Found blocks: [${JSON.stringify(dbBlockStart)}, ${JSON.stringify(dbBlockStart)}], [${dbCount.totalCount}, ${blockCount.totalBlocks | 0}]`)
 
     return db.query<IValidatorEraStats>(validatorStatsSql, {type: QueryTypes.SELECT}).then((stats: IValidatorEraStats[]) => {
         const validationReport: IValidatorReport = {
