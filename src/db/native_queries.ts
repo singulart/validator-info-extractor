@@ -21,7 +21,7 @@ inner join
 		eras e 
 	join 
 		blocks b on b."eraId" = e.id 
-	inner join accounts a on a.id = b."validatorId" ${address != '' ? ` and b."validatorId" = (select id from accounts where key = '${address}') ` : ''}
+	inner join accounts a on a.id = b."validatorId" ${address != '' ? ` and b."validatorId" in (select id from accounts where key = '${address}') ` : ''}
 	    and e.id = "eraId" group by "eraId") subq2 
 	on 
 		subq2."eraId" = vs."eraId" 
@@ -31,16 +31,11 @@ where ${address != '' ? `a.key = '${address}' and ` : ''}
         subq.era 
     from 
         (select 
-            distinct("eraId") era, 
-            min(id) start_height, 
-            min(timestamp) start_time, 
-            max(id) end_height, 
-            max(timestamp) end_time, 
-            (max(id) - min(id)) as era_blocks 
+            distinct("eraId") era 
         from blocks 
         where ${startBlock > 0 ? ` blocks.id >= ${startBlock} and blocks.id <= ${endBlock} ` : '1 = 1'} 
         ${startTime ? ` AND blocks.timestamp >= '${startTime.toISOString()}'::date and blocks.timestamp <= '${endTime.toISOString()}'::date ` : ''} group by blocks."eraId") subq
-        ) ${countQuery ? '' : ` order by id limit 50 offset ${pageSize * (page - 1)} `}`
+        ) ${countQuery ? '' : ` order by id limit ${pageSize} offset ${pageSize * (page - 1)} `}`
 
 
 export const countTotalBlocksProduced = (address: string, startBlock = -1, endBlock = -1, startTime: Moment = null, endTime: Moment = null) => 

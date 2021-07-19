@@ -4,31 +4,38 @@ A backend tool which allows Substrate node-runners to obtain an informative time
 Basic usage: 
 
 ```
-curl http://localhost:3000/validator-report?addr=5EhDdcWm4TdqKp1ew1PqtSpoAELmjbZZLm5E34aFoVYkXdRW&start_block\=100000\&end_block\=2000000
+curl http://localhost:3000/validator-report?addr=5EhDdcWm4TdqKp1ew1PqtSpoAELmjbZZLm5E34aFoVYkXdRW&start_block=100000&end_block=2000000
 ```
 
 Search by date interval is also supported:
 ```
-curl http://localhost:3000/validator-report?addr=5EhDdcWm4TdqKp1ew1PqtSpoAELmjbZZLm5E34aFoVYkXdRW&start_time\=2021-07-18\&end_block\=2021-08-31
+curl http://localhost:3000/validator-report?addr=5EhDdcWm4TdqKp1ew1PqtSpoAELmjbZZLm5E34aFoVYkXdRW&start_time=2021-07-18&end_block=2021-08-31
 ```
 In the latter case, the search is performed from July 18 00:00:00  to Aug 31 23:59:59. 
 
 
- ## Prerequisites
+## Report Structure Explained
+
+A validator report is produced in a JSON format. 
+ 
+ ## Setup
+ 
+ ### Prerequisites
  
  1. PostgreSQL database[https://www.postgresql.org/]. The tool was developed and tested against PostgreSQL 13.3 and 12.7. Compatibility with other versions is likely, though not confirmed.
  2. NodeJS. Verified versions are 16.4.1 and 15.11.10.
  3. Fully synchronized Substrate https://substrate.dev/ node exposing the Websocket endpoint to connect to. We highly recommend connecting to such a node on localhost, for performance reasons. Although, remote nodes should wor, too, the data import will just be very slow. This tool was specifically developed for Joystream https://joystream.org blockchain. Compatibility with other Substrate-based blockchains is not confirmed.
  4. Empty database created in PostgreSQL.
- 
- ## Setup
+
+
+Clone the repo, ```cd``` to the project folder and execute the build command:
  ```
  yarn && yarn build
  ```
 
  ## Usage when running from scratch
 
- Run the schema migration (this step will create all needed tables and indices) ``` NODE_ENV=<database name goes here> node lib/init_db.js ```
+Run the schema migration (this step will create all needed tables and indices) ``` NODE_ENV=<database name goes here> node lib/init_db.js ```
 
 Run the server by executing ``` NODE_ENV=<database name goes here> node lib/index.js ```
 By default, this will start the application on port 3000 connecting to the localhost Substrate node. To change this behavior, use PORT and RPC_ENDPOINT environment variables, respectively: ``` PORT=5555 RPC_ENDPOINT=wss://joystreamstats.live:9945 NODE_ENV=<database name goes here> node lib/index.js ```
