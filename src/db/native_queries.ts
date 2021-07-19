@@ -14,17 +14,15 @@ from
 	validator_stats vs 
 inner join 
 	accounts a on a.id = vs."accountId" 
-inner join 
+${countQuery ? '' : `inner join 
 	(select 
 		"eraId", count(b.id) blocks_cnt 
 	from 
-		eras e 
-	join 
-		blocks b on b."eraId" = e.id 
-	inner join accounts a on a.id = b."validatorId" ${address != '' ? ` and b."validatorId" in (select id from accounts where key = '${address}') ` : ''}
-	    and e.id = "eraId" group by "eraId") subq2 
+		blocks b 
+	${address != '' ? ` where b."validatorId" in (select id from accounts where key = '${address}') ` : ''}
+	    group by "eraId") subq2 
 	on 
-		subq2."eraId" = vs."eraId" 
+		subq2."eraId" = vs."eraId"`} 
 where ${address != '' ? `a.key = '${address}' and ` : ''}
 	vs."eraId" in 
 	(select 
@@ -34,23 +32,17 @@ where ${address != '' ? `a.key = '${address}' and ` : ''}
             distinct("eraId") era 
         from blocks 
         where ${startBlock > 0 ? ` blocks.id >= ${startBlock} and blocks.id <= ${endBlock} ` : '1 = 1'} 
-        ${startTime ? ` AND blocks.timestamp >= '${startTime.toISOString()}'::date and blocks.timestamp <= '${endTime.toISOString()}'::date ` : ''} group by blocks."eraId") subq
+        ${startTime ? ` AND blocks.timestamp >= '${startTime.toISOString()}'::date and blocks.timestamp <= '${endTime.toISOString()}'::date ` : ''}) subq
         ) ${countQuery ? '' : ` order by id limit ${pageSize} offset ${pageSize * (page - 1)} `}`
 
 
 export const countTotalBlocksProduced = (address: string, startBlock = -1, endBlock = -1, startTime: Moment = null, endTime: Moment = null) => 
-
-`SELECT sum(totalBlocks.blocks_cnt) as "totalBlocks"
-FROM
-  (SELECT distinct(e.id) era,
-          count(b.id) blocks_cnt
-   FROM eras e
-   JOIN blocks b ON b."eraId" = e.id
-   INNER JOIN accounts a ON a.id = b."validatorId"
-   WHERE ${address != '' ? `a.key = '${address}' 
-     AND ` : ''} ${startBlock > 0 ? ` b.id >= ${startBlock} AND b.id <= ${endBlock} ` : ' 1=1 '} 
-     ${startTime ? ` AND b.timestamp >= '${startTime.toISOString()}'::date AND b.timestamp <= '${endTime.toISOString()}'::date ` : ' AND 1=1 '}
-   GROUP BY e.id) totalBlocks`
+`SELECT count(b.id) as "totalBlocks"
+FROM blocks b 
+INNER JOIN accounts a ON a.id = b."validatorId"
+WHERE ${address != '' ? `a.key = '${address}' 
+    AND ` : ''} ${startBlock > 0 ? ` b.id >= ${startBlock} AND b.id <= ${endBlock} ` : ' 1=1 '} 
+    ${startTime ? ` AND b.timestamp >= '${startTime.toISOString()}'::date AND b.timestamp <= '${endTime.toISOString()}'::date ` : ' AND 1=1 '}`
 
 export const findBlockByTime = (timeMoment: Moment) => 
 `SELECT b.*
