@@ -5,6 +5,7 @@ import Era from './era'
 import Event from './event'
 import ValidatorStats from './validatorstats'
 import StartBlock from './startblock'
+import Transaction from './transaction'
 
 Account.hasMany(Balance)
 
@@ -30,5 +31,6 @@ export {
   Era,
   Event,
   ValidatorStats,
-  StartBlock
+  StartBlock,
+  Transaction
 }

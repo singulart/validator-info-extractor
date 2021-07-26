@@ -3,7 +3,8 @@ import {
   Block,
   Era,
   Event,
-  ValidatorStats
+  ValidatorStats,
+  Transaction
 } from '../db/models'
 
 import moment from 'moment'
@@ -186,7 +187,18 @@ const processEvents = async (api: ApiPromise, blockId: number, eraId: number, ha
   try {
     const blockEvents = await api.query.system.events.at(hash)
     blockEvents.forEach(async ({ event }: EventRecord) => {
+      if (!event) return;
       let { section, method, data } = event
+      if(section == 'balances' && method == 'Transfer') {
+        await Transaction.create(
+          { 
+            from: data[0].toString(), 
+            to: data[1].toString(), 
+            amount: +data[2].toString(),
+            block: blockId
+           }
+        )
+      }
       if(section == 'staking' && method == 'Reward') {
         const addressCredited = data[0].toString()
         await Event.create({ blockId, section, method, data: JSON.stringify(data) })

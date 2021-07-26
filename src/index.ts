@@ -5,7 +5,7 @@ import cors from 'cors'
 import ascii from './ascii'
 import db from './db'
 import moment from 'moment'
-import { QueryOptionsWithType, QueryTypes, Sequelize } from 'sequelize'
+import { QueryOptionsWithType, QueryTypes, Op } from 'sequelize'
 import {
     validatorStats, 
     countTotalBlocksProduced, 
@@ -20,8 +20,10 @@ import {
 import { Header } from './types'
 
 import {
+    Account,
     Block,
-    StartBlock
+    StartBlock,
+    Transaction
 } from './db/models'
 
 const PORT: number = process.env.PORT ? +process.env.PORT : 3500
@@ -75,6 +77,25 @@ const corsOptions = {
 const ADDRESS_LENGTH = 48
 
 const opts = {type: QueryTypes.SELECT, plain: true} as QueryOptionsWithType<QueryTypes.SELECT> & { plain: true }
+
+app.get('/transactions', cors(corsOptions), async (req: any, res: any, next: any) => {
+    const page = !isNaN(req.query.page) ? req.query.page : 1
+    const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : 'INVALID_ADDR'
+
+    const transfers = await Transaction.findAll({
+        where: {
+            [Op.or]: [
+                {from: address},
+                {to: address},
+            ]
+        }, 
+        order: ['block'], 
+        limit: pageSize, 
+        offset: pageSize * (page - 1)
+    });
+
+    return res.json(transfers)
+})
 
 app.get('/validator-report', cors(corsOptions), async (req: any, res: any, next: any) => {
     try {
