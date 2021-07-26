@@ -91,7 +91,10 @@ app.get('/transactions', cors(corsOptions), async (req: any, res: any, next: any
         }, 
         order: ['block'], 
         limit: pageSize, 
-        offset: pageSize * (page - 1)
+        offset: pageSize * (page - 1),
+        attributes: {
+            exclude: ['createdAt', 'updatedAt']
+        },
     });
 
     return res.json(transfers)
