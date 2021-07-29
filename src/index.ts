@@ -5,15 +5,17 @@ import cors from 'cors'
 import ascii from './ascii'
 import db from './db'
 import moment from 'moment'
-import { QueryOptionsWithType, QueryTypes, Op } from 'sequelize'
+import { QueryOptionsWithType, QueryTypes, Op, json } from 'sequelize'
 import {
     validatorStats, 
     countTotalBlocksProduced, 
     findBlockByTime, 
     findFirstAuthoredBlock,
     findLastAuthoredBlock,
+    topBurners,
     IValidatorReport, 
     ITotalCount, 
+    IBurners,
     ITotalBlockCount, 
     IValidatorEraStats,
     pageSize} from './db/native_queries'
@@ -78,6 +80,15 @@ const ADDRESS_LENGTH = 48
 
 const opts = {type: QueryTypes.SELECT, plain: true} as QueryOptionsWithType<QueryTypes.SELECT> & { plain: true }
 
+
+//  returns the report on which account burned how much tokens
+app.get('/burners', cors(corsOptions), async (req: any, res: any, next: any) => {
+    const burners = (await db.query(topBurners()))[0] // plain=true ruins the structure of the response 
+    return res.json(burners)
+})
+
+
+//  returns the page of transactions for a given account ordered by from latest to earliest
 app.get('/transactions', cors(corsOptions), async (req: any, res: any, next: any) => {
     const page = !isNaN(req.query.page) ? req.query.page : 1
     const address = (req.query.addr && req.query.addr.length == ADDRESS_LENGTH) ? req.query.addr : 'INVALID_ADDR'
@@ -89,7 +100,9 @@ app.get('/transactions', cors(corsOptions), async (req: any, res: any, next: any
                 {to: address},
             ]
         }, 
-        order: ['block'], 
+        order: [
+            ['block', 'DESC']
+        ], 
         limit: pageSize, 
         offset: pageSize * (page - 1),
         attributes: {

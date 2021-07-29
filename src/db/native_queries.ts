@@ -1,5 +1,6 @@
 import {Moment} from 'moment'
 export const pageSize = 50
+const burnAddress = '5D5PhZQNJzcJXVBxwJxZcsutjKPqUPydrvpu6HeiBfMaeKQu'
 
 export const validatorStats = (address: string, startBlock = -1, endBlock = -1, startTime: Moment, endTime: Moment, page = 1, countQuery = false): string => 
 `select 
@@ -67,6 +68,14 @@ ${blockIdStart > 0 ? ` WHERE b.id >= ${blockIdStart} AND b.id <= ${blockIdEnd} `
 ORDER BY b.id DESC
 LIMIT 1`
 
+export const topBurners = () => 
+`SELECT "from"      wallet, 
+        Sum(amount) totalBurned 
+FROM   transactions 
+WHERE  "to" = '${burnAddress}' 
+GROUP  BY wallet 
+ORDER  BY totalBurned DESC`
+
 export interface IValidatorReport {
     startBlock: number, 
     startEra: number, 
@@ -88,6 +97,11 @@ export interface IValidatorEraStats {
     rewards: number,
     commission: number,
     blocksCount: number
+}
+
+export interface IBurners {
+    account: string,
+    totalBurned: number
 }
 
 export interface ITotalCount {
