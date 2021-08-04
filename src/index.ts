@@ -15,14 +15,12 @@ import {
     topBurners,
     IValidatorReport, 
     ITotalCount, 
-    IBurners,
     ITotalBlockCount, 
     IValidatorEraStats,
     pageSize} from './db/native_queries'
 import { Header } from './types'
 
 import {
-    Account,
     Block,
     StartBlock,
     Transaction
@@ -71,10 +69,19 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+const allowedOrigins = process.env.ALLOWED_ORIGIN?.split(",") || ['http://localhost:3000']
+
 const corsOptions = {
-    origin: process.env.ALOWED_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        if (origin && allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    }, 
     optionsSuccessStatus: 200
 }
+
 
 const ADDRESS_LENGTH = 48
 
