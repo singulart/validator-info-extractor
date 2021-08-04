@@ -76,6 +76,9 @@ WHERE  "to" = '${burnAddress}'
 GROUP  BY wallet 
 ORDER  BY totalBurned DESC`
 
+export const missingBlocks = (endBlock: number) => 
+`SELECT generate_series(1, ${endBlock}) m EXCEPT (SELECT id FROM blocks WHERE id BETWEEN 1 AND ${endBlock})`
+
 export interface IValidatorReport {
     startBlock: number, 
     startEra: number, 

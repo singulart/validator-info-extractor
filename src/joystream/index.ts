@@ -182,6 +182,13 @@ export const addBlockRange = async (
   }
 }
 
+export const addBlockToQueue = async (
+  api: ApiPromise,
+  block: number
+) => {
+  queue.push(() => processBlock(api, block))
+}
+
 const processEvents = async (api: ApiPromise, blockId: number, eraId: number, hash: string) => {
   processing = `events block ${blockId}`
   try {
@@ -277,4 +284,4 @@ const importEraAtBlock = async (api: Api, blockId: number, hash: string, eraMode
 }
 
 
-module.exports = { addBlock, addBlockRange, processNext }
+module.exports = { addBlock, addBlockRange, addBlockToQueue, processNext }
