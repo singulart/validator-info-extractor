@@ -79,6 +79,17 @@ ORDER  BY totalBurned DESC`
 export const missingBlocks = (endBlock: number) => 
 `SELECT generate_series(1, ${endBlock}) m EXCEPT (SELECT id FROM blocks WHERE id BETWEEN 1 AND ${endBlock})`
 
+export const slowValidators = (blockTime: number, days: -1) => 
+`SELECT a.KEY       "slowValidator", 
+Count(b.id) "numBlocks" 
+FROM   blocks b 
+INNER JOIN accounts a 
+        ON a.id = b."validatorId" 
+WHERE  blocktime >= ${blockTime} 
+${days < 0 ? '' : ` AND b.timestamp >= (now() - INTERVAL '${days} days') `}
+GROUP  BY 1 
+ORDER  BY 2 DESC`
+
 export interface IValidatorReport {
     startBlock: number, 
     startEra: number, 
@@ -113,4 +124,9 @@ export interface ITotalCount {
 
 export interface ITotalBlockCount {
     totalBlocks: number
+}
+
+export interface ISlowValidator {
+    slowValidator: string,
+    numBlocks: number
 }

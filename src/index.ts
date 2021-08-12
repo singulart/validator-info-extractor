@@ -13,6 +13,7 @@ import {
     findFirstAuthoredBlock,
     findLastAuthoredBlock,
     topBurners,
+    slowValidators,
     IValidatorReport, 
     ITotalCount, 
     ITotalBlockCount, 
@@ -87,6 +88,14 @@ const ADDRESS_LENGTH = 48
 
 const opts = {type: QueryTypes.SELECT, plain: true} as QueryOptionsWithType<QueryTypes.SELECT> & { plain: true }
 
+
+//  returns the report on which validator was the slowest in producing block
+app.get('/slow-validators', cors(corsOptions), async (req: any, res: any, next: any) => {
+    const blocktime = !isNaN(req.query.blocktime) ? req.query.blocktime : 6500 // 6.5 seconds by default
+    const days = !isNaN(req.query.days) ? req.query.days : 7 // 7 days report
+    const slowValidatorsReport = (await db.query(slowValidators(blocktime, days)))[0] // plain=true ruins the structure of the response 
+    return res.json(slowValidatorsReport)
+})
 
 //  returns the report on which account burned how much tokens
 app.get('/burners', cors(corsOptions), async (req: any, res: any, next: any) => {
