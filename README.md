@@ -151,3 +151,27 @@ Find missing blocks (not imported for any reason)
 ```
 SELECT generate_series(1, 2000000) except (select id from blocks where id between 1 AND 2000000);
 ```
+
+```
+-- convert the existing values in 'data' column to valid jsonb
+update events set data = REPLACE(SUBSTR(data::varchar, 2, LENGTH(data::varchar) - 2), '\"', '"')::jsonb;
+
+-- select top validator rewards per era 
+select query1.eid era, sum(query1.s) validator_rewards_paid from (select b."eraId" eid, e."blockId" bid, sum((e.data -> 1)::int) s from events e inner join blocks b on b.id = e."blockId" where section = 'staking' AND method = 'Reward' group by bid, eid) as query1 group by 1 order by 2 desc;
+
+-- check for one specific era
+select b."eraId" eid, e."blockId" bid, sum((e.data -> 1)::int) from events e inner join blocks b on b.id = e."blockId" where b."eraId" = 2516 AND section = 'staking' AND method = 'Reward' group by bid, eid order by 3 desc;
+
+
+-- check for the blocks range
+select b."eraId" eid, e."blockId" bid, sum((e.data -> 1)::int) from events e inner join blocks b on b.id = e."blockId" where b.id between 1688400 AND 1789200 AND section = 'staking' AND method = 'Reward' group by bid, eid order by 3 desc;
+
+
+-- select top validator rewards per era for a given block range 
+select query1.eid era, sum(query1.s) validator_rewards_paid from (select b."eraId" eid, e."blockId" bid, sum((e.data -> 1)::int) s from events e inner join blocks b on b.id = e."blockId" where b.id between 1688400 AND 1789200 and section = 'staking' AND method = 'Reward' group by bid, eid) as query1 group by 1 order by 2 desc;
+
+
+-- grand total of all validator rewards for a given block range 
+select sum(q.validator_rewards_paid) from (select query1.eid era, sum(query1.s) validator_rewards_paid from (select b."eraId" eid, e."blockId" bid, sum((e.data -> 1)::int) s from events e inner join blocks b on b.id = e."blockId" where b.id between 1688400 AND 1789200 and section = 'staking' AND method = 'Reward' group by bid, eid) as query1 group by 1) as q;
+
+```
